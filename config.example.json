@@ -1,0 +1,6 @@
+{
+  "aerodatabox_key": "PASTE-YOUR-RAPIDAPI-KEY-HERE",
+  "fids_refresh_minutes": 240,
+  "opensky_client_id": "PASTE-OPENSKY-CLIENT-ID",
+  "opensky_client_secret": "PASTE-OPENSKY-CLIENT-SECRET"
+}

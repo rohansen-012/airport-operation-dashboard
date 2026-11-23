@@ -1,0 +1,1062 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DEL Operations Centre</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Doto:wght@700;900&family=Poppins:wght@500;600;700;800&display=swap">
+<style>
+:root{
+  color-scheme: light;
+  --bg:#f1f1ef; --surface:#fcfcfb; --surface-2:#f4f4f2; --border:#e2e1dc;
+  --text:#0b0b0b; --text-2:#52514e; --muted:#77766f; --grid:#e6e5e0;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s7:#6250d6; --s8:#e34948;
+  --good:#008300; --warn:#b07800; --serious:#d24f1a; --crit:#d03b3a; --info:#2a78d6;
+  --sign:#111214; --sign-fg:#ffffff; --sign-y:#fcc83a; --navy:#2f3650; --led:#ffc23a; --led-bg:#0b0c0f;
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --bg:#161a24; --surface:#1e2230; --surface-2:#272c3d; --border:#333a4f;
+  --text:#f2f3f6; --text-2:#c4c8d4; --muted:#8c93a6; --grid:#2c3245;
+  --sign:#0c0d10;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s7:#9085e9; --s8:#e66767;
+  --good:#0ca30c; --warn:#c98500; --serious:#d95926; --crit:#e66767; --info:#3987e5;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:13px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.mono,.k-val,td.num{font-variant-numeric:tabular-nums}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;padding:12px 20px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:20}
+.brand{display:flex;flex-direction:column;min-width:0}
+.brand h1{font-size:16px;margin:0;font-weight:650;letter-spacing:.1px}
+.brand span{color:var(--text-2);font-size:12px}
+.sim{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--text-2);border:1px dashed var(--border);border-radius:999px;padding:3px 10px}
+.sim::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--good);animation:pulse 1.6s infinite}
+@keyframes pulse{50%{opacity:.25}}
+.clock{margin-left:auto;text-align:right}
+.clock b{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:.5px}
+.clock div{color:var(--text-2);font-size:11px}
+.controls{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.seg button,.btn{background:var(--surface-2);color:var(--text);border:0;padding:6px 10px;font:inherit;font-size:12px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--border)}
+.seg button.on{background:var(--text);color:var(--surface)}
+.btn{border:1px solid var(--border);border-radius:8px}
+.btn.on{background:var(--warn);color:#000;border-color:var(--warn)}
+.btn:hover,.seg button:hover:not(.on){filter:brightness(1.1)}
+main{padding:16px 20px 28px;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;min-width:0}
+.card h2{font-size:13px;margin:0 0 10px;font-weight:650;display:flex;align-items:center;gap:8px}
+.card h2 small{font-weight:400;color:var(--muted);font-size:11px;margin-left:auto}
+.span-12{grid-column:span 12}.span-8{grid-column:span 8}.span-6{grid-column:span 6}.span-4{grid-column:span 4}
+.kpis{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:10px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:11px 12px;min-width:0}
+.k-label{color:var(--text-2);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.k-val{font-size:24px;font-weight:600;margin:2px 0 1px;white-space:nowrap}
+.k-val small{font-size:13px;color:var(--text-2);font-weight:500}
+.k-sub{color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meter{height:4px;border-radius:2px;background:var(--grid);margin-top:6px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--text-2);border-radius:2px}
+#mapWrap{position:relative;z-index:0;isolation:isolate} /* keep Leaflet's high z-index layers under the sticky header */
+header{z-index:1000 !important}
+#tip{z-index:2000 !important}
+#map{display:block;width:100%;border-radius:8px;cursor:crosshair}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;color:var(--text-2);font-size:11px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.chip{display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--c);flex:none}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;color:var(--muted);font-weight:500;font-size:11px;padding:4px 6px;border-bottom:1px solid var(--border)}
+td{padding:6px;border-bottom:1px solid var(--border);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--surface-2)}
+tbody tr.sel{background:var(--surface-2);box-shadow:inset 3px 0 0 var(--info)}
+td b{font-weight:600}
+.est{display:block;color:var(--warn);font-size:11px}
+.muted{color:var(--muted)}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:2px 8px 2px 6px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border);color:var(--text)}
+.pill i{font-style:normal;font-size:10px;width:14px;height:14px;border-radius:50%;display:inline-grid;place-items:center;color:#fff;background:var(--muted)}
+.pill.good i{background:var(--good)}.pill.warn i{background:var(--warn);color:#000}.pill.serious i{background:var(--serious)}.pill.crit i{background:var(--crit)}.pill.info i{background:var(--info)}
+.pill.crit{border-color:var(--crit)}
+.list{display:flex;flex-direction:column}
+.row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)}
+.row:last-child{border-bottom:0}
+.row .grow{flex:1;min-width:0}
+.row .t{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;flex:none;width:40px}
+.row .name{font-weight:550}
+.row .sub{color:var(--muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .val{font-variant-numeric:tabular-nums;text-align:right;flex:none}
+#alerts{max-height:330px;overflow:auto}
+.alert{display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);animation:fadein .5s}
+@keyframes fadein{from{opacity:0;transform:translateY(-4px)}}
+.sev{flex:none;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:11px;color:#fff;background:var(--info)}
+.sev.warn{background:var(--warn);color:#000}.sev.crit{background:var(--crit)}
+.detail{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:12px}
+.detail dt{color:var(--muted)}.detail dd{margin:0;font-variant-numeric:tabular-nums;font-weight:500}
+.fl-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.fl-head b{font-size:20px}
+.hint{color:var(--muted);font-size:12px;line-height:1.5}
+.term{padding:8px 0;border-bottom:1px solid var(--border)}
+.term:last-child{border-bottom:0}
+.term-top{display:flex;justify-content:space-between;align-items:baseline}
+.term-top b{font-size:13px}
+.q{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:8px}
+.q div{background:var(--surface-2);border-radius:6px;padding:5px 7px}
+.q span{display:block;color:var(--muted);font-size:10px}
+.q b{font-variant-numeric:tabular-nums;font-size:13px;font-weight:600}
+.q b.hot{color:var(--crit)}
+.tasks{display:flex;gap:3px;margin-top:5px}
+.task{font-size:9px;padding:1px 5px;border-radius:4px;border:1px solid var(--border);color:var(--muted)}
+.task.done{background:var(--surface-2);color:var(--text-2);text-decoration:line-through;text-decoration-color:var(--muted)}
+.task.act{border-color:var(--info);color:var(--text);background:color-mix(in srgb,var(--info) 18%,transparent);animation:pulse 1.4s infinite}
+.chart{width:100%;position:relative}
+.chart svg{display:block;width:100%}
+.chart text{fill:var(--muted);font-size:10px}
+#tip{position:fixed;pointer-events:none;z-index:50;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 9px;font-size:12px;box-shadow:0 6px 20px rgba(0,0,0,.25);display:none;max-width:260px}
+#tip .tt{font-weight:650;margin-bottom:3px}
+#tip .tr{display:flex;gap:8px;align-items:center;justify-content:space-between}
+#tip .tr span:last-child{font-variant-numeric:tabular-nums;font-weight:600}
+.sim.live{border-style:solid;border-color:var(--good);color:var(--text)}
+.sim.live.stale::before{background:var(--warn)}
+.btn:disabled,.seg button:disabled{opacity:.4;cursor:not-allowed}
+.tag{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.5px;padding:1px 5px;border-radius:4px;margin-right:6px;vertical-align:1px;line-height:1.4}
+.tag.live{background:var(--good);color:#fff}
+.tag.sim{border:1px dashed var(--muted);color:var(--muted);font-weight:600}
+#lmap{display:none;width:100%;border-radius:8px;background:#1d2228}
+.acm{background:none;border:0}
+.acm svg{display:block;transition:transform .4s;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))}
+.acl{position:absolute;left:27px;top:3px;font:600 10px/1.2 system-ui,sans-serif;color:#fff;text-shadow:0 0 3px #000,0 0 2px #000,0 0 1px #000;white-space:nowrap;pointer-events:none}
+.acl b{font-weight:500;color:#d8e2ea}
+.ring-l{color:rgba(255,255,255,.7);font:10px system-ui,sans-serif;text-align:center;text-shadow:0 0 2px #000;background:none;border:0}
+/* ---------- wayfinding-sign look ---------- */
+.logo{flex:none;width:44px;height:44px;border-radius:10px;background:var(--sign);color:var(--sign-y);display:grid;place-items:center;box-shadow:inset 0 -4px 0 var(--sign-y)}
+.logo svg{width:28px;height:28px}
+.brand-row{display:flex;align-items:center;gap:12px;min-width:0}
+.brand h1{font-family:Poppins,system-ui,sans-serif;font-weight:800;font-size:18px;letter-spacing:.6px;text-transform:uppercase}
+.card > h2{font-family:Poppins,system-ui,sans-serif;background:var(--sign);color:var(--sign-fg);margin:-4px -4px 12px;padding:8px 10px 8px 8px;border-radius:9px;font-size:13.5px;font-weight:600;letter-spacing:.2px;min-height:38px}
+.card > h2{white-space:nowrap}
+.card > h2 small{color:rgba(255,255,255,.62);font-family:system-ui,sans-serif;text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.card > h2.yel{background:var(--sign-y);color:var(--navy)}
+.card > h2.yel small{color:rgba(47,54,80,.8)}
+.pic{flex:none;display:inline-grid;place-items:center;width:24px;height:24px}
+.pic svg,.arw svg{width:22px;height:22px;display:block}
+.arw{flex:none;margin-left:8px;display:inline-grid}
+.kpi{position:relative;border-top:3px solid var(--sign-y)}
+.kpi-ic{position:absolute;top:9px;right:9px;width:24px;height:24px;border-radius:6px;background:var(--sign);color:#fff;display:grid;place-items:center}
+.kpi-ic svg{width:16px;height:16px}
+.k-label{padding-right:28px}
+.k-val{font-family:Doto,ui-monospace,monospace;font-weight:900;font-size:27px;letter-spacing:.5px;line-height:1.15}
+.k-val small{font-family:system-ui,sans-serif}
+/* LED clock + flight information display boards */
+.clock{background:var(--led-bg);background-image:radial-gradient(rgba(255,255,255,.06) .9px,transparent 1.2px);background-size:4px 4px;border-radius:10px;padding:6px 14px 5px;border:1px solid #23262d}
+.clock b{font-family:Doto,ui-monospace,monospace;font-weight:900;font-size:30px;color:var(--led);text-shadow:0 0 8px rgba(255,194,58,.45);letter-spacing:1px}
+.clock div{color:#9aa0ad}
+.fids{background:var(--led-bg);background-image:radial-gradient(rgba(255,255,255,.055) .9px,transparent 1.2px);background-size:4px 4px;border-radius:9px;padding:4px 8px 6px;border:1px solid #23262d;overflow:hidden}
+.fids th{color:#a3a9b6;border-color:#262a32;font-family:Poppins,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.8px;font-size:9.5px;font-weight:600}
+.fids td{font-family:Doto,ui-monospace,monospace;font-weight:900;color:var(--led);font-size:14.5px;border-color:#1c1f26;text-shadow:0 0 6px rgba(255,194,58,.3);text-transform:uppercase}
+.fids td b{font-weight:900}
+.fids .muted{color:#c89a2e}
+.fids .est{color:#ff9a4a;font-size:12px}
+.fids tbody tr:hover{background:rgba(255,255,255,.05)}
+.fids tbody tr.sel{background:rgba(252,200,58,.12);box-shadow:inset 3px 0 0 var(--led)}
+.fids .pill{background:none;border:0;padding:0;font:inherit;font-size:13px;color:#eceff4;gap:6px}
+.fids .pill.good{color:#4be371}.fids .pill.warn{color:var(--led)}.fids .pill.serious{color:#ff9a4a}.fids .pill.crit{color:#ff5a5a}.fids .pill.info{color:#8ccaff}
+.fids .pill i{border-radius:3px;font-family:system-ui,sans-serif;font-weight:700}
+.fids td .chip{border-radius:1px}
+.sev{border-radius:5px}
+footer{grid-column:span 12;color:var(--muted);font-size:11px;line-height:1.6}
+footer b{color:var(--text-2)}
+@media (max-width:1300px){.kpis{grid-template-columns:repeat(5,minmax(0,1fr))}}
+@media (max-width:1100px){.span-8,.span-6,.span-4{grid-column:span 12}}
+@media (max-width:640px){
+  header{padding:10px 16px}main{padding:12px 16px;gap:12px}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .clock{margin-left:0;text-align:left}
+  .q{grid-template-columns:repeat(2,minmax(0,1fr))}
+  td{max-width:110px}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand-row"><div class="logo" data-picto="plane"></div><div class="brand">
+    <h1>DEL · Airport Operations</h1>
+    <span>Indira Gandhi International Airport, New Delhi · unofficial demo, not affiliated with DIAL &nbsp;<span class="sim" id="simBadge">SIMULATED LIVE FEED</span></span>
+  </div></div>
+  <div class="controls">
+    <div class="seg" id="speed" title="Simulation speed">
+      <button data-s="1" class="on">1×</button><button data-s="10">10×</button><button data-s="60">60×</button>
+    </div>
+    <button class="btn" id="btnNow" title="Reset to the real current time at 1×">Jump to now</button>
+    <button class="btn" id="btnFog" title="Low-visibility procedures: wider spacing, delays">Fog / LVP</button>
+    <button class="btn" id="btnClose" title="Close runway 11L/29R for a 20-minute inspection">Close RWY 29R</button>
+    <button class="btn" id="btnLive" disabled title="Live data needs the local server: run  python serve.py">Live data: off</button>
+    <button class="btn" id="btnTheme" title="Toggle light/dark">◐</button>
+  </div>
+  <div class="clock"><b id="clock">--:--:--</b><div id="date">IST</div></div>
+</header>
+
+<main>
+  <section class="span-12 kpis" id="kpis"></section>
+
+  <section class="card span-8">
+    <h2 data-icon="radar">Live airfield <small id="mapNote">West flow · ARR 29R / 28 · DEP 29L / 27</small></h2>
+    <div id="mapWrap"><canvas id="map" aria-label="Animated airfield map showing aircraft landing, taxiing and taking off"></canvas><div id="lmap" aria-label="Live map of real aircraft around DEL"></div></div>
+    <div class="legend" id="mapLegend"></div>
+  </section>
+
+  <section class="span-4" style="display:flex;flex-direction:column;gap:14px;min-width:0">
+    <div class="card"><h2 data-icon="target">Selected flight <small>click an aircraft or a board row</small></h2><div id="detail"></div></div>
+    <div class="card"><h2 data-icon="runway">Runways <small>last 60 min</small></h2><div class="list" id="runways"></div></div>
+  </section>
+
+  <section class="card span-4"><h2 class="yel" data-icon="arr" data-arrow="135">Arrivals <small id="arrCount"></small></h2>
+    <div class="fids"><table><thead><tr><th>Sched</th><th>Flight</th><th>From</th><th>Stand</th><th>Status</th></tr></thead><tbody id="arrBoard"></tbody></table></div></section>
+  <section class="card span-4"><h2 class="yel" data-icon="dep" data-arrow="45">Departures <small id="depCount"></small></h2>
+    <div class="fids"><table><thead><tr><th>Sched</th><th>Flight</th><th>To</th><th>Stand</th><th>Status</th></tr></thead><tbody id="depBoard"></tbody></table></div></section>
+  <section class="card span-4"><h2 data-icon="bell">Operations log <small>AOCC event feed</small></h2><div id="alerts"></div></section>
+
+  <section class="card span-6"><h2 data-icon="bars">Movements by hour — today <small>lighter bars = still scheduled</small></h2>
+    <div class="legend" style="margin:0 0 6px"><span><i class="chip" style="--c:var(--s1)"></i>Arrivals</span><span><i class="chip" style="--c:var(--s2)"></i>Departures</span></div>
+    <div class="chart" id="chHourly"></div></section>
+  <section class="card span-6"><h2 data-icon="people">Passengers inside terminals <small>solid = actual, dashed = forecast</small></h2>
+    <div class="chart" id="chPax"></div></section>
+
+  <section class="card span-4"><h2 data-icon="passport">Terminals &amp; queues <small>wait in minutes</small></h2><div id="terminals"></div></section>
+  <section class="card span-4"><h2 data-icon="cart">Aircraft turnarounds <small>on stand, next to push</small></h2><div class="list" id="turns"></div></section>
+  <section class="card span-4"><h2 data-icon="bolt">Background systems <small>airside &amp; landside</small></h2><div class="list" id="systems"></div></section>
+
+  <footer>
+    <b>About this data.</b> Opened on its own, every number comes from a built-in simulation of a typical DEL day (about 1,400 movements across four runways and three terminals). Run <b>python serve.py</b> and open http://localhost:8790 to switch on live data: panels tagged <b>LIVE</b> then show real aircraft from ADS-B (adsb.lol), the VIDP METAR (aviationweather.gov) and, with an AeroDataBox key in config.json, the real arrivals and departures board. Panels tagged <b>SIM</b> stay simulated, because no public source has that data.
+    A full airport deployment would feed those from internal systems: <b>flights</b> from the airport operational database (AODB) or an ADS-B provider; <b>passengers &amp; queues</b> from DigiYatra, CUPPS check-in and CISF lane counters; <b>bags</b> from the baggage handling system (BHS/SCADA); <b>turnarounds</b> from the A-CDM milestones; <b>systems</b> from the building management system and the ARFF/AOCC dispatch logs; <b>weather</b> from the METAR/RVR feed.
+  </footer>
+</main>
+<div id="tip"></div>
+
+<script>
+"use strict";
+/* ============================ helpers ============================ */
+const $ = s => document.querySelector(s);
+const IST = 5.5 * 3600e3, MIN = 60e3, HOUR = 3600e3, DAY = 864e5;
+const pad = n => String(n).padStart(2, "0");
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const fmtT = ms => { const d = new Date(ms + IST); return pad(d.getUTCHours()) + ":" + pad(d.getUTCMinutes()); };
+const fmtTS = ms => { const d = new Date(ms + IST); return fmtT(ms) + ":" + pad(d.getUTCSeconds()); };
+const istHour = ms => { const d = new Date(ms + IST); return d.getUTCHours() + d.getUTCMinutes() / 60 + d.getUTCSeconds() / 3600; };
+const dayStartOf = ms => Math.floor((ms + IST) / DAY) * DAY - IST;
+const fmtN = n => Math.round(n).toLocaleString("en-IN");
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+/* ============================ reference data ============================ */
+const DOM_AL = [
+  {c:"6E", n:"IndiGo", w:58, types:["A320neo","A321neo"], term:"T1/T2"},
+  {c:"AI", n:"Air India", w:20, types:["A320neo","A321neo","A319"], term:"T3"},
+  {c:"IX", n:"Air India Express", w:9, types:["B737-8"], term:"T1"},
+  {c:"QP", n:"Akasa Air", w:8, types:["B737-8"], term:"T1"},
+  {c:"SG", n:"SpiceJet", w:5, types:["B737-800"], term:"T1"},
+];
+const DOM_CITIES = "BOM Mumbai|BLR Bengaluru|MAA Chennai|CCU Kolkata|HYD Hyderabad|GOI Goa|AMD Ahmedabad|PNQ Pune|COK Kochi|SXR Srinagar|IXL Leh|LKO Lucknow|PAT Patna|GAU Guwahati|JAI Jaipur|IXC Chandigarh|VNS Varanasi|BBI Bhubaneswar|TRV Thiruvananthapuram|IXB Bagdogra|ATQ Amritsar|NAG Nagpur|IDR Indore|DED Dehradun|BOM Mumbai|BLR Bengaluru|HYD Hyderabad|CCU Kolkata"
+  .split("|").map(s => [s.slice(0,3), s.slice(4)]);
+const INTL = `AI|Air India|LHR|London|B787-8|3
+AI|Air India|JFK|New York|B777-300ER|2
+AI|Air India|SFO|San Francisco|B777-200LR|1.5
+AI|Air India|DXB|Dubai|A321neo|3
+AI|Air India|SIN|Singapore|B787-8|2
+AI|Air India|KTM|Kathmandu|A320neo|2
+AI|Air India|NRT|Tokyo|B787-8|1
+AI|Air India|SYD|Sydney|B787-9|1
+AI|Air India|CDG|Paris|B787-8|1
+6E|IndiGo|DXB|Dubai|A321neo|3
+6E|IndiGo|BKK|Bangkok|A321neo|2
+6E|IndiGo|IST|Istanbul|B777-300ER|1.5
+6E|IndiGo|AMS|Amsterdam|B787-9|1
+6E|IndiGo|DOH|Doha|A321neo|1.5
+EK|Emirates|DXB|Dubai|B777-300ER|2.5
+QR|Qatar Airways|DOH|Doha|A350-900|2
+EY|Etihad|AUH|Abu Dhabi|B787-9|1.5
+LH|Lufthansa|FRA|Frankfurt|A350-900|1
+BA|British Airways|LHR|London|B787-10|1.5
+VS|Virgin Atlantic|LHR|London|A350-1000|1
+SQ|Singapore Airlines|SIN|Singapore|A350-900|1.5
+TG|Thai Airways|BKK|Bangkok|B787-9|1
+AF|Air France|CDG|Paris|B787-9|1
+KL|KLM|AMS|Amsterdam|B787-9|1
+TK|Turkish Airlines|IST|Istanbul|A330-300|1
+LX|Swiss|ZRH|Zurich|B777-300ER|1
+AC|Air Canada|YYZ|Toronto|B777-300ER|1
+UA|United|EWR|Newark|B787-9|1
+UL|SriLankan|CMB|Colombo|A320neo|1
+WY|Oman Air|MCT|Muscat|B737-8|1
+SV|Saudia|JED|Jeddah|A330-300|1
+FZ|flydubai|DXB|Dubai|B737-8|1.5
+G9|Air Arabia|SHJ|Sharjah|A320|1
+RA|Nepal Airlines|KTM|Kathmandu|A320|0.7
+BG|Biman|DAC|Dhaka|B737-800|0.7
+KE|Korean Air|ICN|Seoul|A330-300|0.7
+CX|Cathay Pacific|HKG|Hong Kong|A350-900|0.8
+ET|Ethiopian|ADD|Addis Ababa|B787-8|0.8
+MH|Malaysia Airlines|KUL|Kuala Lumpur|A330-300|0.8`.split("\n").map(l => { const p = l.split("|"); return {c:p[0], n:p[1], iata:p[2], city:p[3], type:p[4], w:+p[5]}; });
+const FREIGHT = [
+  {c:"QR", n:"Qatar Airways Cargo", iata:"DOH", city:"Doha", type:"B777F"},
+  {c:"EK", n:"Emirates SkyCargo", iata:"DXB", city:"Dubai", type:"B777F"},
+  {c:"BZ", n:"Blue Dart Aviation", iata:"BOM", city:"Mumbai", type:"B757F"},
+  {c:"FX", n:"FedEx Express", iata:"CAN", city:"Guangzhou", type:"B777F"},
+  {c:"TK", n:"Turkish Cargo", iata:"IST", city:"Istanbul", type:"A330F"},
+  {c:"LH", n:"Lufthansa Cargo", iata:"FRA", city:"Frankfurt", type:"B777F"},
+];
+const REG = {"6E":"VT-I","AI":"VT-A","IX":"VT-B","QP":"VT-Y","SG":"VT-S",EK:"A6-E",QR:"A7-B",EY:"A6-B",LH:"D-AI",BA:"G-Z",VS:"G-V",SQ:"9V-S",TG:"HS-T",AF:"F-H",KL:"PH-B",TK:"TC-J",LX:"HB-J",AC:"C-F",UA:"N2",UL:"4R-A",WY:"A4O-",SV:"HZ-A",FZ:"A6-F",G9:"A6-A",RA:"9N-A",BG:"S2-A",KE:"HL7",CX:"B-L",ET:"ET-A",MH:"9M-M",BZ:"VT-B",FX:"N8"};
+const CAT_VAR = {"6E":"--s1", AI:"--s8", IX:"--s2", QP:"--s4", SG:"--s5", INT:"--s7", CGO:"--s3"};
+const CAT_NAME = {"6E":"IndiGo", AI:"Air India", IX:"AI Express", QP:"Akasa", SG:"SpiceJet", INT:"Foreign carriers", CGO:"Freighters"};
+// relative movement weight by IST hour (night international bank, morning/evening domestic peaks)
+const HW = [3.2,3.0,2.6,1.8,1.4,2.2,3.8,4.6,4.8,4.6,4.4,4.0,3.6,3.4,3.2,3.3,3.6,4.0,4.4,4.6,4.5,4.3,4.0,3.6];
+const TOTAL_PER_DAY = 1400, FREIGHT_PER_DAY = 14;
+const isWide = t => /777|787|350|330|747|757F|A330F/.test(t);
+
+/* ============================ airfield geometry (logical 1000 x 540) ============================ */
+const W0 = 1000, H0 = 590;
+const RWY = {
+  "27":  {y:90,  x0:180, x1:800, pair:"09/27",  ends:["09","27"],  use:"DEP"},
+  "29L": {y:180, x0:120, x1:900, pair:"11R/29L", ends:["11R","29L"], use:"DEP"},
+  "29R": {y:250, x0:140, x1:860, pair:"11L/29R", ends:["11L","29R"], use:"ARR", td:835},
+  "28":  {y:480, x0:100, x1:880, pair:"10/28",  ends:["10","28"],  use:"ARR", td:855},
+};
+const ROW_N = 290, ROW_S = 440, ECT = 935, CONN = [172, 442, 572, 810];
+const BUILDINGS = [
+  {id:"T3", x:188, y:338, w:242, h:54},
+  {id:"T2", x:455, y:338, w:96,  h:54},
+  {id:"T1", x:590, y:338, w:202, h:54},
+  {id:"CGO", x:830, y:338, w:86, h:54, label:"Cargo"},
+];
+const STANDS = [];
+function addStands(term, x0, x1, step){
+  const xs = []; for (let x = x0; x <= x1 + .1; x += step) xs.push(x);
+  xs.forEach((x, i) => STANDS.push({id:`${term}-${pad(i + 1)}`, term, x, y:318, side:"N", free:-Infinity}));
+  xs.forEach((x, i) => STANDS.push({id:`${term}-${pad(i + 1 + xs.length)}`, term, x, y:414, side:"S", free:-Infinity}));
+}
+addStands("T3", 200, 416, 18); addStands("T2", 466, 538, 18); addStands("T1", 602, 780, 17.8); addStands("CGO", 843, 903, 20);
+const BELTS = {T1:6, T2:5, T3:14, CGO:0};
+
+/* motion constants (logical units per second; 1 unit ~ 5.6 m) */
+const V_APP = 9, V_TAXI = 2.2, V_PUSH = 0.6, V_TO = 15, L_TO = 380, APP_S = 70, HOLD_S = 25, CLIMB_S = 55;
+
+/* ============================ simulation state ============================ */
+const S = { t: Date.now(), speed: 1, fog: false, closure: null, selected: null, days: new Set(), flights: [], byId: new Map(),
+  alerts: [], nextAlertAt: 0, drawn: [], paxHist: [], jams: 0, birds: 1, lastFod: Date.now() - 95 * MIN };
+
+function genDay(ds){
+  const r = mulberry32(Math.floor(ds / DAY) * 9973 + 7);
+  const pick = a => a[Math.floor(r() * a.length)];
+  const wpick = a => { let x = r() * a.reduce((s, b) => s + b.w, 0); for (const b of a) { x -= b.w; if (x <= 0) return b; } return a[a.length - 1]; };
+  const L = () => String.fromCharCode(65 + Math.floor(r() * 26));
+  const out = []; const hwSum = HW.reduce((a, b) => a + b, 0); let k = 0;
+  const make = (o) => {
+    const wide = isWide(o.type);
+    const pax = o.cat === "CGO" ? 0 : Math.round((wide ? 250 + r() * 90 : 150 + r() * 46) * (.78 + r() * .2));
+    const u = r();
+    const delay = u < .62 ? Math.floor(r() * 6) : u < .86 ? 6 + Math.floor(r() * 24) : u < .975 ? 30 + Math.floor(r() * 70) : Math.floor(r() * 10);
+    const f = Object.assign(o, { id: `${ds}-${k++}`, wide, pax, delay, fogDelay: 0, cancelled: u >= .988 && o.cat !== "CGO",
+      reg: (REG[o.c] || "VT-") + L() + L() + (o.c.length ? L() : ""), belt: 1 + Math.floor(r() * (BELTS[o.term] || 1)),
+      cargoT: o.cat === "CGO" ? 40 + r() * 60 : wide ? 8 + r() * 14 : 0.6 + r() * 2.4, est: null, path: null });
+    out.push(f);
+  };
+  for (let h = 0; h < 24; h++) {
+    const n = Math.round(HW[h] / hwSum * TOTAL_PER_DAY);
+    for (let i = 0; i < n; i++) {
+      const dir = r() < .5 ? "A" : "D";
+      const intl = r() < ((h < 4 || h >= 21) ? .55 : .22);
+      const sched = ds + (h * 60 + Math.floor(r() * 12) * 5) * MIN;
+      if (intl) {
+        const x = wpick(INTL);
+        make({dir, sched, c:x.c, airline:x.n, fn:`${x.c} ${x.c === "AI" || x.c === "6E" ? 100 + Math.floor(r() * 899) : 200 + Math.floor(r() * 799)}`, iata:x.iata, city:x.city, type:x.type, term:"T3", intl:true, cat: x.c === "AI" ? "AI" : x.c === "6E" ? "6E" : "INT"});
+      } else {
+        const a = wpick(DOM_AL), c = pick(DOM_CITIES);
+        const term = a.term === "T1/T2" ? (r() < .5 ? "T1" : "T2") : a.term;
+        make({dir, sched, c:a.c, airline:a.n, fn:`${a.c} ${100 + Math.floor(r() * 2899)}`, iata:c[0], city:c[1], type:pick(a.types), term, intl:false, cat:a.c});
+      }
+    }
+  }
+  for (let i = 0; i < FREIGHT_PER_DAY; i++) {
+    const x = FREIGHT[i % FREIGHT.length];
+    make({dir: i % 2 ? "D" : "A", sched: ds + Math.floor(r() * 288) * 5 * MIN, c:x.c, airline:x.n, fn:`${x.c} ${8000 + Math.floor(r() * 999)}`, iata:x.iata, city:x.city, type:x.type, term:"CGO", intl:true, cat:"CGO"});
+  }
+  // stand + runway assignment in time order
+  out.sort((a, b) => a.sched - b.sched);
+  for (const f of out) {
+    const t0 = f.sched + f.delay * MIN;
+    const from = f.dir === "A" ? t0 : t0 - 44 * MIN, to = f.dir === "A" ? t0 + 40 * MIN : t0 + 2 * MIN;
+    const cands = STANDS.filter(s => s.term === f.term);
+    let best = cands.find(s => s.free <= from);
+    if (!best) best = cands.reduce((a, b) => a.free < b.free ? a : b);
+    best.free = to; f.stand = best;
+    f.rwy = f.dir === "A" ? (best.side === "N" ? "29R" : "28") : (r() < .66 ? "29L" : "27");
+  }
+  return out;
+}
+
+function ensureDays(){
+  const ds = dayStartOf(S.t); let changed = false;
+  for (const d of [ds - DAY, ds, ds + DAY]) if (!S.days.has(d)) { S.days.add(d); S.flights.push(...genDay(d)); changed = true; }
+  for (const d of [...S.days]) if (d < ds - DAY) { S.days.delete(d); S.flights = S.flights.filter(f => f.sched >= ds - DAY - 3 * HOUR); changed = true; }
+  if (changed) { S.byId = new Map(S.flights.map(f => [f.id, f])); sequenceAll(); S.chartDirty = true; }
+}
+
+/* ============================ paths & motion ============================ */
+function mkPath(raw){
+  const pts = raw.filter((p, i) => i === 0 || p[0] !== raw[i - 1][0] || p[1] !== raw[i - 1][1]);
+  const seg = []; let L = 0;
+  for (let i = 1; i < pts.length; i++) { const dx = pts[i][0] - pts[i - 1][0], dy = pts[i][1] - pts[i - 1][1], l = Math.hypot(dx, dy); seg.push({x:pts[i - 1][0], y:pts[i - 1][1], dx, dy, l, s:L}); L += l; }
+  return {pts, seg, len:L};
+}
+function at(p, d){
+  d = clamp(d, 0, p.len);
+  for (let i = 0; i < p.seg.length; i++) { const s = p.seg[i]; if (d <= s.s + s.l || i === p.seg.length - 1) { const u = s.l ? (d - s.s) / s.l : 0; return {x:s.x + s.dx * u, y:s.y + s.dy * u, h:Math.atan2(s.dy, s.dx)}; } }
+  return {x:p.pts[0][0], y:p.pts[0][1], h:0};
+}
+const nearestConn = x => CONN.reduce((a, b) => Math.abs(b - x) < Math.abs(a - x) ? b : a);
+function getPath(f){
+  if (f.path && f.path.rwy === f.rwy) return f.path;
+  const r = RWY[f.rwy], st = f.stand, sRow = st.side === "N" ? ROW_N : ROW_S; let p;
+  if (f.dir === "A") {
+    const row = r.y === 250 ? ROW_N : ROW_S;
+    const exitX = clamp(st.x + 55, 320, r.td - 200);
+    const pts = [[exitX, r.y], [exitX, row]];
+    if (row !== sRow) { const c = nearestConn((exitX + st.x) / 2); pts.push([c, row], [c, sRow]); }
+    pts.push([st.x, sRow], [st.x, st.y]);
+    p = mkPath(pts);
+  } else {
+    p = mkPath([[st.x, st.y], [st.x, sRow], [ECT, sRow], [ECT, r.y], [r.x1 - 6, r.y]]);
+  }
+  p.rwy = f.rwy; f.path = p; return p;
+}
+function arrTimes(f){
+  const r = RWY[f.rwy], p = getPath(f), D = r.td - p.pts[0][0], Tr = 2 * D / (V_APP + V_TAXI);
+  return {p, r, D, Tr, appAt: f.est - APP_S * 1e3, inAt: f.est + (Tr + p.len / V_TAXI) * 1e3, outAt: f.est + 40 * MIN};
+}
+function depTimes(f){
+  const p = getPath(f), push = p.seg[0].l, Tro = 2 * L_TO / V_TO;
+  const rollAt = f.est - Tro * 1e3, lineupAt = rollAt - HOLD_S * 1e3, taxiAt = lineupAt - (p.len - push) / V_TAXI * 1e3, pushAt = taxiAt - push / V_PUSH * 1e3;
+  return {p, push, Tro, rollAt, lineupAt, taxiAt, pushAt, inAt: f.est - 44 * MIN};
+}
+const started = f => f.est != null && (f.dir === "A" ? S.t >= f.est - APP_S * 1e3 : S.t >= depTimes(f).pushAt);
+const desired = f => f.sched + (f.delay + f.fogDelay) * MIN;
+
+function flightState(f, t){
+  if (f.cancelled || f.est == null || Math.abs(t - f.est) > 2 * HOUR) return null;
+  if (f.dir === "A") {
+    const T = arrTimes(f), r = T.r, s = (t - f.est) / 1e3;
+    if (s < -APP_S) return null;
+    if (s < 0) { const a = -s / APP_S; return {x:r.td + V_APP * -s, y:r.y, h:Math.PI, alt:a, phase:"Final approach RWY " + f.rwy, kt:140 + Math.round(a * 20), ft:Math.round(a * 2200)}; }
+    if (s < T.Tr) { const pos = V_APP * s - (V_APP - V_TAXI) / (2 * T.Tr) * s * s, v = V_APP - (V_APP - V_TAXI) * s / T.Tr; return {x:r.td - pos, y:r.y, h:Math.PI, alt:0, phase:"Landing roll", kt:Math.round(v / V_APP * 135), ft:0}; }
+    const d = (s - T.Tr) * V_TAXI;
+    if (d < T.p.len) return Object.assign(at(T.p, d), {alt:0, phase:"Taxi to stand " + f.stand.id, kt:15, ft:0});
+    if (t < T.outAt) return {x:f.stand.x, y:f.stand.y, h:f.stand.side === "N" ? Math.PI / 2 : -Math.PI / 2, alt:0, phase:"On stand " + f.stand.id, kt:0, ft:0, parked:true};
+    return null;
+  }
+  const T = depTimes(f), r = RWY[f.rwy];
+  if (t < T.inAt) return null;
+  if (t < T.pushAt) return {x:f.stand.x, y:f.stand.y, h:f.stand.side === "N" ? Math.PI / 2 : -Math.PI / 2, alt:0, phase:"On stand " + f.stand.id + " · turnaround", kt:0, ft:0, parked:true};
+  if (t < T.taxiAt) { const q = at(T.p, (t - T.pushAt) / 1e3 * V_PUSH); q.h = f.stand.side === "N" ? Math.PI / 2 : -Math.PI / 2; return Object.assign(q, {alt:0, phase:"Pushback", kt:3, ft:0}); }
+  if (t < T.lineupAt) return Object.assign(at(T.p, T.push + (t - T.taxiAt) / 1e3 * V_TAXI), {alt:0, phase:"Taxi to RWY " + f.rwy + " via ECT", kt:16, ft:0});
+  const lu = r.x1 - 6;
+  if (t < T.rollAt) return {x:lu, y:r.y, h:Math.PI, alt:0, phase:"Lined up RWY " + f.rwy, kt:0, ft:0};
+  const s = (t - T.rollAt) / 1e3;
+  if (s < T.Tro) return {x:lu - .5 * (V_TO / T.Tro) * s * s, y:r.y, h:Math.PI, alt:0, phase:"Take-off roll", kt:Math.round(s / T.Tro * 160), ft:0};
+  const s2 = s - T.Tro; if (s2 > CLIMB_S) return null;
+  const x = lu - L_TO - V_TO * s2 * 1.15; if (x < -60) return null;
+  const a = Math.min(1, s2 / 22);
+  return {x, y:r.y - s2 * (f.rwy === "27" ? .25 : -.15), h:Math.PI - (f.rwy === "27" ? .02 : -.01), alt:a, phase:"Initial climb", kt:165 + Math.round(s2), ft:Math.round(s2 * 55)};
+}
+
+/* ============================ sequencing / scenarios ============================ */
+function sequenceAll(){
+  if (S.closure) for (const f of S.flights) {
+    if (f.dir === "A" && f.rwy === S.closure.rwy && !f.cancelled && !started(f)) {
+      const d = f.est ?? desired(f);
+      if (d >= S.closure.from - 2 * MIN && d <= S.closure.until) { f.rwy = "28"; f.path = null; f.diverted = true; }
+    }
+  }
+  const by = {};
+  for (const f of S.flights) if (!f.cancelled) (by[f.rwy] ||= []).push(f);
+  for (const [rw, list] of Object.entries(by)) {
+    const arr = RWY[rw].use === "ARR", sep = (arr ? (S.fog ? 165 : 100) : (S.fog ? 125 : 80)) * 1e3;
+    list.sort((a, b) => desired(a) - desired(b));
+    let prev = -Infinity;
+    for (const f of list) {
+      if (f.est != null && started(f)) { prev = Math.max(prev, f.est); continue; }
+      f.est = Math.max(desired(f), prev + sep); prev = f.est;
+    }
+  }
+  S.chartDirty = true;
+}
+function setFog(on){
+  S.fog = on; $("#btnFog").classList.toggle("on", on);
+  if (on) {
+    for (const f of S.flights) { const d = desired(f); if (!f.cancelled && d > S.t - 10 * MIN && d < S.t + 4 * HOUR && !started(f)) f.fogDelay += 10 + Math.random() * 45; }
+    pushAlert("crit", "Low-visibility procedures in force — RVR below 550 m. CAT III B approaches only, arrival spacing increased to 165 s.");
+  } else pushAlert("info", "Visibility improving — LVP cancelled, normal spacing resumed.");
+  sequenceAll();
+}
+function closeRunway(){
+  if (S.closure) return;
+  S.closure = {rwy:"29R", from:S.t, until:S.t + 20 * MIN};
+  pushAlert("crit", "RWY 11L/29R CLOSED — bird strike reported by a departing aircraft. Runway inspection and FOD sweep under way; arrivals moved to RWY 28.");
+  sequenceAll();
+}
+
+/* ============================ alerts ============================ */
+function pushAlert(sev, text, t = S.t){ S.alerts.unshift({sev, text, t}); S.alerts.length = Math.min(S.alerts.length, 40); renderAlerts(); }
+function randomFlight(filter){ const c = S.flights.filter(f => !f.cancelled && Math.abs(f.est - S.t) < 90 * MIN && (!filter || filter(f))); return c[Math.floor(Math.random() * c.length)]; }
+function genAlert(t){
+  const f = randomFlight(), g = randomFlight(x => x.dir === "D" && x.est > t), a = randomFlight(x => x.dir === "A");
+  const T = [
+    ["info", () => g && `Gate change: ${g.fn} to ${g.city} now boarding at stand ${g.stand.id}.`],
+    ["info", () => `${2 + Math.floor(Math.random() * 6)} wheelchair requests at T3 arrivals — assistance team dispatched.`],
+    ["info", () => f && `Follow-me vehicle dispatched to guide ${f.fn} (${f.type}).`],
+    ["info", () => { S.lastFod = t; return "Runway inspection complete on RWY 11R/29L — no FOD found."; }],
+    ["info", () => "Medical team attended to a passenger at T1 departures — resolved."],
+    ["info", () => a && `${a.fn} from ${a.city}: priority bags on belt ${a.belt} (${a.term}).`],
+    ["info", () => "Metro Airport Express: 4-coach rake added for the evening peak."],
+    ["warn", () => { S.birds = Math.min(3, S.birds + 1); return "Bird activity on the final approach to RWY 29R — bird control unit dispatched."; }],
+    ["warn", () => { S.jams++; return `Baggage jam on sorter line ${1 + Math.floor(Math.random() * 8)}, T3 — expected clear in ~4 min.`; }],
+    ["warn", () => "Security queue above 20 min at T1 — CISF opening 2 more lanes."],
+    ["warn", () => g && `${g.fn}: fuel truck delay at stand ${g.stand.id} — off-block time may slip 10 min.`],
+    ["warn", () => "VVIP movement scheduled — apron area near T3 west under restriction for 25 min."],
+  ];
+  const [sev, fn] = T[Math.floor(Math.random() * T.length)]; const text = fn();
+  if (text) { S.alerts.unshift({sev, text, t}); S.alerts.length = Math.min(S.alerts.length, 40); }
+}
+function tickEvents(){
+  while (S.nextAlertAt <= S.t) { if (!LIVE_ON()) genAlert(S.nextAlertAt); S.nextAlertAt += (3 + Math.random() * 6) * MIN; renderAlerts(); }
+  if (S.closure && S.t > S.closure.until) { S.closure = null; pushAlert("info", "RWY 11L/29R inspection complete — runway reopened for arrivals."); }
+  if (Math.random() < .0005) S.birds = Math.max(0, S.birds - 1);
+}
+
+/* ============================ map rendering ============================ */
+const cv = $("#map"); let ctx = cv.getContext("2d"); let scale = 1, catCol = {};
+function readColors(){ for (const k in CAT_VAR) catCol[k] = css(CAT_VAR[k]); }
+function sizeCanvas(){ const w = $("#mapWrap").clientWidth, dpr = window.devicePixelRatio || 1; scale = w / W0; cv.width = Math.round(w * dpr); cv.height = Math.round(w * H0 / W0 * dpr); cv.style.height = (w * H0 / W0) + "px"; ctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0); }
+const PLANE = (() => { const top = [[6,0],[5,-.7],[3.8,-.95],[1.4,-.95],[-1,-6.2],[-2.2,-6.2],[-1,-.95],[-4.3,-.85],[-5.5,-2.9],[-6.3,-2.9],[-5.8,-.5],[-6.2,0]]; return top.concat(top.slice(1, -1).reverse().map(([x, y]) => [x, -y])); })();
+function planePath(x, y, h, len){ ctx.save(); ctx.translate(x, y); ctx.rotate(h); const s = len / 12.4; ctx.scale(s, s); ctx.beginPath(); PLANE.forEach(([px, py], i) => i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)); ctx.closePath(); }
+// flat illustrated aircraft: white fuselage, airline-coloured tail, grey engines, soft shadow
+function drawPlane(x, y, h, len, col, alpha = 1){
+  planePath(x, y, h, len); ctx.globalAlpha = alpha;
+  ctx.fillStyle = "#fbfcfd"; ctx.fill();
+  ctx.save(); ctx.clip(); ctx.fillStyle = col; ctx.fillRect(-7, -4, 2.75, 8); ctx.fillRect(3.2, -.25, 2.8, .5); ctx.restore();
+  ctx.fillStyle = "#9aa3ab"; ctx.fillRect(-.3, -3.1, 1.5, .8); ctx.fillRect(-.3, 2.3, 1.5, .8);
+  ctx.fillStyle = "#2b3440"; ctx.fillRect(4.6, -.45, .7, .9); // cockpit windows
+  ctx.lineWidth = .35; ctx.strokeStyle = "rgba(60,70,82,.65)"; ctx.stroke();
+  ctx.restore(); ctx.globalAlpha = 1;
+}
+function drawShadow(x, y, h, len, alpha){ planePath(x, y, h, len); ctx.fillStyle = `rgba(35,45,60,${alpha})`; ctx.fill(); ctx.restore(); }
+function text(t, x, y, size = 8, color = "#5b636c", weight = 700, align = "center"){ ctx.font = `${weight} ${size}px Poppins,system-ui,sans-serif`; ctx.textAlign = align; ctx.textBaseline = "middle"; ctx.fillStyle = color; ctx.fillText(t, x, y); }
+function label(text, x, y, align = "left", size = 8, color = "#e9eef2"){ ctx.font = `600 ${size}px system-ui,sans-serif`; ctx.textAlign = align; ctx.textBaseline = "middle"; ctx.lineWidth = 2.4; ctx.strokeStyle = "rgba(10,14,18,.85)"; ctx.strokeText(text, x, y); ctx.fillStyle = color; ctx.fillText(text, x, y); }
+
+let staticCache = null, staticKey = "";
+function drawStatic(night){
+  const key = cv.width + "x" + cv.height + (S.closure ? "c" : "");
+  if (key !== staticKey) {
+    staticKey = key; staticCache = document.createElement("canvas"); staticCache.width = cv.width; staticCache.height = cv.height;
+    const c = staticCache.getContext("2d"); c.setTransform(cv.width / W0, 0, 0, cv.height / H0, 0, 0);
+    const main = ctx; ctx = c; paintStatic(); ctx = main;
+  }
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(staticCache, 0, 0); ctx.restore();
+  if (night) { ctx.fillStyle = "rgba(10,18,45,.52)"; ctx.fillRect(0, 0, W0, H0); }
+}
+function tree(x, y, r){ ctx.fillStyle = "rgba(40,60,40,.25)"; ctx.beginPath(); ctx.arc(x + 1.2, y + 1.5, r, 0, 7); ctx.fill(); ctx.fillStyle = "#5fae45"; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); ctx.fillStyle = "#7cc85c"; ctx.beginPath(); ctx.arc(x - r * .3, y - r * .3, r * .55, 0, 7); ctx.fill(); }
+function roofBlock(x, y, w, h, base = "#e3e6e9", top = "#f3f5f7"){
+  ctx.fillStyle = "rgba(40,50,60,.22)"; ctx.fillRect(x + 3, y + 3, w, h);
+  ctx.fillStyle = base; ctx.fillRect(x, y, w, h); ctx.fillStyle = top; ctx.fillRect(x + 3, y + 3, w - 6, h - 6);
+}
+function paintStatic(){
+  const R = mulberry32(42);
+  ctx.fillStyle = "#a9b3a2"; ctx.fillRect(0, 0, W0, H0);                    // infield
+  ctx.fillStyle = "#b9bec2"; ctx.fillRect(0, 488, W0, H0 - 488);             // landside ground
+  // apron with concrete slabs
+  ctx.fillStyle = "#c9cdd1"; ctx.fillRect(160, 296, 780, 140);
+  ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = .4;
+  for (let x = 160; x <= 940; x += 20) { ctx.beginPath(); ctx.moveTo(x, 296); ctx.lineTo(x, 436); ctx.stroke(); }
+  for (let y = 296; y <= 436; y += 20) { ctx.beginPath(); ctx.moveTo(160, y); ctx.lineTo(940, y); ctx.stroke(); }
+  // MRO hangars + apron (top strip)
+  ctx.fillStyle = "#c3c7cb"; ctx.fillRect(320, 8, 300, 66);
+  for (let i = 0; i < 3; i++) {
+    const x = 330 + i * 98; roofBlock(x, 14, 80, 42, "#d9ccad", "#ebe1c8");
+    ctx.strokeStyle = "rgba(160,140,100,.45)"; ctx.lineWidth = .6; for (let k = 1; k < 8; k++) { ctx.beginPath(); ctx.moveTo(x + 3 + k * 9.25, 17); ctx.lineTo(x + 3 + k * 9.25, 53); ctx.stroke(); }
+  }
+  text("MRO HANGARS", 470, 66, 6.5, "#6d7379");
+  // helipad
+  ctx.fillStyle = "#c3c7cb"; ctx.beginPath(); ctx.arc(60, 42, 20, 0, 7); ctx.fill();
+  ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(60, 42, 14, 0, 7); ctx.stroke(); text("H", 60, 43, 14, "#ffffff", 800);
+  // highway, car parks, metro (landside)
+  ctx.fillStyle = "#80878d"; ctx.fillRect(0, 510, W0, 24);
+  ctx.strokeStyle = "rgba(255,255,255,.75)"; ctx.setLineDash([7, 6]); ctx.lineWidth = .7; ctx.beginPath(); ctx.moveTo(0, 522); ctx.lineTo(W0, 522); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = "#f2c230"; ctx.fillRect(0, 510, W0, .6); ctx.fillRect(0, 533.4, W0, .6);
+  text("NH-48  ·  AEROCITY →", 992, 503, 6.5, "#5e666e", 700, "right");
+  for (const [x0, w] of [[190, 240], [590, 200]]) {
+    ctx.fillStyle = "#8e959b"; ctx.fillRect(x0, 539, w, 24);
+    ctx.strokeStyle = "rgba(255,255,255,.7)"; ctx.lineWidth = .4;
+    for (let x = x0 + 4; x < x0 + w; x += 6) { ctx.beginPath(); ctx.moveTo(x, 539); ctx.lineTo(x, 547); ctx.moveTo(x, 555); ctx.lineTo(x, 563); ctx.stroke(); }
+    const cols = ["#f6c445", "#ffffff", "#e2574c", "#4b8fe0", "#2f3650", "#f6c445", "#c9ced3"];
+    for (let x = x0 + 5; x < x0 + w - 4; x += 6) for (const y of [540.5, 556.5]) if (R() < .72) { ctx.fillStyle = cols[Math.floor(R() * cols.length)]; ctx.fillRect(x + .6, y, 3.6, 5.5); ctx.fillStyle = "rgba(30,40,55,.45)"; ctx.fillRect(x + 1, y + 1.4, 2.8, 1.3); }
+    text("P", x0 - 8, 551, 9, "#ffffff", 800); ctx.strokeStyle = "#2f3650";
+  }
+  ctx.fillStyle = "#2f3650"; for (const x of [182, 582]) { ctx.beginPath(); ctx.roundRect(x - 5, 545, 10, 12, 2); ctx.fill(); } for (const x of [182, 582]) text("P", x, 551.5, 8, "#ffffff", 800);
+  // metro rails
+  ctx.fillStyle = "#9aa1a7"; ctx.fillRect(0, 568, W0, 18);
+  ctx.fillStyle = "#7b8288"; for (let x = 0; x < W0; x += 4) ctx.fillRect(x, 570, 1.4, 14);
+  ctx.fillStyle = "#4e555c"; ctx.fillRect(0, 572, W0, .8); ctx.fillRect(0, 581.5, W0, .8);
+  roofBlock(250, 564, 70, 26, "#dfe3e7", "#eef1f3"); text("METRO · T3", 285, 577, 6, "#5e666e");
+  // trees
+  for (let x = 14; x < W0; x += 26) tree(x + R() * 6, 499 + R() * 3, 4 + R() * 1.6);
+  for (const [a, b] of [[20, 175], [445, 580], [800, 990]]) for (let x = a; x < b; x += 13) tree(x, 551 + R() * 4, 4.2 + R() * 1.5);
+  for (let x = 130; x < 310; x += 15) tree(x, 14 + R() * 50, 4 + R() * 2);
+  for (let x = 640; x < 990; x += 17) tree(x, 12 + R() * 56, 4 + R() * 2);
+  for (const [x, y] of [[972, 230], [985, 262], [968, 300], [988, 470], [20, 300], [32, 330], [14, 400], [30, 470]]) tree(x, y, 5);
+  // taxiways
+  const tw = (pts) => { ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.lineWidth = 7.5; ctx.strokeStyle = "#8d949a"; ctx.stroke(); ctx.lineWidth = .7; ctx.strokeStyle = "#f5c518"; ctx.stroke(); };
+  tw([[95, ROW_N], [ECT, ROW_N]]); tw([[95, ROW_S], [ECT, ROW_S]]);
+  CONN.forEach(x => tw([[x, ROW_N], [x, ROW_S]]));
+  tw([[ECT, 90], [ECT, 486]]); tw([[ECT, 90], [800, 90]]); tw([[ECT, 180], [900, 180]]);
+  [340, 460, 580, 640].forEach(x => tw([[x, 250], [x, ROW_N]]));
+  [340, 460, 580, 640].forEach(x => tw([[x, ROW_S], [x, 480]]));
+  text("EASTERN CROSS TAXIWAY", ECT - 6, 135, 6, "#6b5a1c", 700, "right");
+  // runways: asphalt, white edge + centre lines, bold piano-key thresholds
+  for (const [k, r] of Object.entries(RWY)) {
+    const closed = S.closure && S.closure.rwy === k;
+    ctx.fillStyle = "rgba(40,50,60,.18)"; ctx.fillRect(r.x0 + 2, r.y - 5, r.x1 - r.x0, 12);
+    ctx.fillStyle = "#4d545b"; ctx.fillRect(r.x0, r.y - 6.5, r.x1 - r.x0, 13);
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(r.x0, r.y - 6.5, r.x1 - r.x0, .5); ctx.fillRect(r.x0, r.y + 6, r.x1 - r.x0, .5);
+    ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 1.1; ctx.setLineDash([10, 8]); ctx.beginPath(); ctx.moveTo(r.x0 + 30, r.y); ctx.lineTo(r.x1 - 30, r.y); ctx.stroke(); ctx.setLineDash([]);
+    for (const xe of [r.x0 + 3, r.x1 - 17]) for (let i = 0; i < 6; i++) ctx.fillRect(xe, r.y - 5.2 + i * 1.9 + (i > 2 ? .9 : 0), 14, 1.05);
+    for (const xe of [r.x0 + 48, r.x1 - 58]) { ctx.fillRect(xe, r.y - 4.6, 10, 2); ctx.fillRect(xe, r.y + 2.6, 10, 2); } // touchdown zone
+    label(r.ends[0], r.x0 - 5, r.y, "right", 8, "#ffffff"); label(r.ends[1], r.x1 + 5, r.y - (k === "29L" ? 9 : 0), "left", 8, "#ffffff");
+    if (r.use === "ARR") { ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.setLineDash([3, 5]); ctx.beginPath(); ctx.moveTo(r.x1, r.y); ctx.lineTo(W0, r.y); ctx.stroke(); ctx.setLineDash([]); }
+    if (closed) { ctx.strokeStyle = "#ff5a5a"; ctx.lineWidth = 2; for (let x = r.x0 + 60; x < r.x1 - 40; x += 140) { ctx.beginPath(); ctx.moveTo(x - 6, r.y - 5); ctx.lineTo(x + 6, r.y + 5); ctx.moveTo(x + 6, r.y - 5); ctx.lineTo(x - 6, r.y + 5); ctx.stroke(); } label("CLOSED — INSPECTION", (r.x0 + r.x1) / 2, r.y - 13, "center", 8, "#ff8080"); }
+  }
+  // stands: yellow lead-in lines and stop bars
+  ctx.strokeStyle = "#e9b81c"; ctx.lineWidth = .5;
+  for (const s of STANDS) { const n = s.side === "N"; ctx.beginPath(); ctx.moveTo(s.x, n ? 300 : 432); ctx.lineTo(s.x, n ? 334 : 396); ctx.moveTo(s.x - 3, n ? 328 : 402); ctx.lineTo(s.x + 3, n ? 328 : 402); ctx.stroke(); }
+  // terminal buildings: light roofs with rooftop plant, piers, signage
+  for (const b of BUILDINGS) {
+    roofBlock(b.x, b.y, b.w, b.h);
+    ctx.fillStyle = "#d3d8dd"; for (let x = b.x + 10; x < b.x + b.w - 14; x += 26) ctx.fillRect(x, b.y + 9, 12, 8);
+    ctx.fillStyle = "#c4cad0"; ctx.fillRect(b.x + 8, b.y + b.h - 14, b.w - 16, 4);
+    const lw = b.id === "CGO" ? 34 : 24; ctx.fillStyle = "#2f3650"; ctx.beginPath(); ctx.roundRect(b.x + b.w / 2 - lw / 2, b.y + b.h / 2 - 7, lw, 14, 3); ctx.fill();
+    text(b.label ? b.label.toUpperCase() : b.id, b.x + b.w / 2, b.y + b.h / 2 + .5, 8.5, "#fcc83a", 800);
+  }
+  // facilities
+  roofBlock(104, 356, 26, 20); ctx.fillStyle = "#2f3650"; ctx.beginPath(); ctx.arc(117, 366, 6, 0, 7); ctx.fill(); ctx.fillStyle = "#9fd3ff"; ctx.beginPath(); ctx.arc(117, 366, 4, 0, 7); ctx.fill(); text("ATC", 117, 384, 6.5, "#4a525a");
+  for (const [x, y] of [[60, 215], [965, 150], [70, 455]]) { roofBlock(x - 9, y - 6, 18, 12, "#d9534f", "#e8726b"); text("ARFF", x, y + 13, 6, "#4a525a"); }
+  for (let i = 0; i < 4; i++) { const cx = 958 + (i % 2) * 14, cy = 392 + Math.floor(i / 2) * 14; ctx.fillStyle = "rgba(40,50,60,.2)"; ctx.beginPath(); ctx.arc(cx + 1.5, cy + 1.5, 5.5, 0, 7); ctx.fill(); ctx.fillStyle = "#eef0f2"; ctx.beginPath(); ctx.arc(cx, cy, 5.5, 0, 7); ctx.fill(); ctx.strokeStyle = "#c5cbd1"; ctx.lineWidth = .6; ctx.beginPath(); ctx.arc(cx, cy, 3, 0, 7); ctx.stroke(); }
+  text("FUEL FARM", 965, 425, 6, "#4a525a");
+}
+function drawLights(){
+  for (const [k, r] of Object.entries(RWY)) {
+    if (S.closure && S.closure.rwy === k) continue;
+    ctx.fillStyle = "rgba(255,214,140,.9)";
+    for (let x = r.x0; x <= r.x1; x += 16) { ctx.fillRect(x - .5, r.y - 6.5, 1, 1); ctx.fillRect(x - .5, r.y + 5.5, 1, 1); }
+    ctx.fillStyle = "rgba(120,255,140,.9)"; for (let i = -4; i <= 4; i++) ctx.fillRect(r.x0 - 1, r.y + i * 1.3, 1, .9);
+    if (r.use === "ARR") { ctx.fillStyle = "rgba(255,255,255,.85)"; for (let x = r.x1 + 8; x < r.x1 + 70; x += 8) ctx.fillRect(x, r.y - .5, 1.4, 1.4); }
+  }
+  ctx.fillStyle = "rgba(90,200,255,.6)"; for (const y of [ROW_N, ROW_S]) for (let x = 100; x < ECT; x += 14) ctx.fillRect(x, y - .4, .8, .8);
+}
+function drawVehicles(t){
+  const s = t / 1000;
+  for (let i = 0; i < 18; i++) { // highway traffic, lots of yellow-top taxis
+    const east = i % 2 === 0, sp = 10 + (i % 5) * 1.7, x = ((s * sp + i * 137) % 1100) - 50, px = east ? x : W0 - x, py = east ? 514.5 : 526;
+    ctx.fillStyle = ["#f6c445", "#ffffff", "#f6c445", "#e2574c", "#4b8fe0", "#2f3650"][i % 6]; ctx.fillRect(px, py, 6, 3);
+    ctx.fillStyle = "rgba(30,40,55,.45)"; ctx.fillRect(px + (east ? 3.6 : 1), py + .5, 1.4, 2);
+  }
+  // Airport Express metro: 5-car train shuttling along the line
+  const span = 1500, pos = (s * 9) % (span * 2), dir = pos < span ? 1 : -1, x0 = dir > 0 ? pos - 250 : span * 2 - pos - 250;
+  for (let k = 0; k < 5; k++) {
+    const x = x0 + k * 25 * dir;
+    ctx.fillStyle = "rgba(30,40,55,.25)"; ctx.fillRect(x + 1, 573.5, 23, 9);
+    ctx.fillStyle = "#e9eff6"; ctx.beginPath(); ctx.roundRect(x, 572, 23, 9, 2); ctx.fill();
+    ctx.fillStyle = "#5c8fd6"; ctx.fillRect(x + 2, 575.5, 19, 2);
+  }
+}
+function drawTurnaroundVehicles(f, st, t){
+  const T = depTimes(f), p = clamp((t - T.inAt) / (T.pushAt - T.inAt), 0, 1), x = f.stand.x, y = f.stand.y, dy = f.stand.side === "N" ? 1 : -1;
+  const veh = (dx, ddy, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(x + dx - w / 2, y + ddy * dy - h / 2, w, h); };
+  if (p > .3 && p < .6) veh(8, 1, 4, 2.4, "#f2c230");      // fuel
+  if (p > .25 && p < .5) veh(-7, -3, 3.4, 2.4, "#8fc1ff");  // catering
+  if (p > .35 && p < .8) { veh(-8, 4, 2.4, 2, "#e8e8e8"); veh(-11, 4, 2.2, 2, "#9aa0a6"); veh(-14, 4, 2.2, 2, "#9aa0a6"); } // bag train
+  if (p > .9) veh(0, -10, 3, 2.4, "#ffd84d");                // pushback tug
+}
+
+function drawMap(){
+  const t = S.t, h = istHour(t), night = h < 6.2 || h > 18.1;
+  drawStatic(night);
+  if (night) drawLights();
+  drawVehicles(t);
+  S.drawn = [];
+  const air = [], ground = [], parked = new Map();
+  for (const f of S.flights) {
+    if (f.cancelled || f.est == null || Math.abs(t - f.est) > 2 * HOUR) continue;
+    const st = flightState(f, t); if (!st) continue;
+    if (st.parked) { if (!parked.has(f.stand.id)) parked.set(f.stand.id, [f, st]); }
+    else (st.alt > 0 ? air : ground).push([f, st]);
+  }
+  for (const [f, st] of parked.values()) {
+    const len = f.wide ? 18 : 13.5; drawShadow(st.x + 1.8, st.y + 2.4, st.h, len, .22); drawPlane(st.x, st.y, st.h, len, catCol[f.cat]);
+    if (f.dir === "D") drawTurnaroundVehicles(f, st, t);
+    S.drawn.push({f, st, len});
+  }
+  for (const [f, st] of ground) {
+    const len = f.wide ? 18 : 13.5; drawShadow(st.x + 1.8, st.y + 2.4, st.h, len, .25); drawPlane(st.x, st.y, st.h, len, catCol[f.cat]);
+    if (night) { const blink = Math.floor(performance.now() / 500) % 2; if (blink) { ctx.fillStyle = "#ff3b3b"; ctx.beginPath(); ctx.arc(st.x, st.y, .9, 0, 7); ctx.fill(); } }
+    if (/roll|Lined/.test(st.phase)) label(f.fn, st.x, st.y - 10, "center", 7.5);
+    S.drawn.push({f, st, len});
+  }
+  for (const [f, st] of air) {
+    const len = (f.wide ? 18 : 13.5) * (1 + st.alt * .5), off = st.alt * 16;
+    drawShadow(st.x + off * .6, st.y + off, st.h, f.wide ? 18 : 13.5, .35 * (1 - st.alt * .4));
+    drawPlane(st.x, st.y, st.h, len, catCol[f.cat]);
+    if (night) { ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(st.x + Math.cos(st.h) * len * .5, st.y + Math.sin(st.h) * len * .5, 1.5, 0, 7); ctx.fill(); }
+    label(`${f.fn} · ${st.ft} ft`, st.x, st.y - 12 - st.alt * 4, "center", 7.5);
+    S.drawn.push({f, st, len});
+  }
+  if (S.fog) { ctx.fillStyle = "rgba(205,210,214,.36)"; ctx.fillRect(0, 0, W0, H0); label("LOW VISIBILITY PROCEDURES · CAT III B · RVR 300 m", 500, 20, "center", 10, "#ffffff"); }
+  const sel = S.drawn.find(d => d.f.id === S.selected);
+  if (sel) { ctx.strokeStyle = "#2f3650"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(sel.st.x, sel.st.y, sel.len * .9, 0, 7); ctx.stroke(); ctx.strokeStyle = "rgba(252,200,58,.9)"; ctx.beginPath(); ctx.arc(sel.st.x, sel.st.y, sel.len * .9 + 3 + (performance.now() / 120 % 6), 0, 7); ctx.stroke(); }
+  label(`${parked.size} on stand · ${ground.length} taxiing/runway · ${air.length} airborne`, 8, 14, "left", 8, "#dfe6ec");
+}
+function hitTest(ev){
+  const rect = cv.getBoundingClientRect(), x = (ev.clientX - rect.left) / scale, y = (ev.clientY - rect.top) / scale;
+  let best = null, bd = 14;
+  for (const d of S.drawn) { const dd = Math.hypot(d.st.x - x, d.st.y - y); if (dd < bd) { bd = dd; best = d; } }
+  return best;
+}
+cv.addEventListener("mousemove", ev => {
+  const d = hitTest(ev);
+  if (!d) { hideTip(); cv.style.cursor = "crosshair"; return; }
+  cv.style.cursor = "pointer";
+  showTip(ev, `${d.f.fn} · ${d.f.dir === "A" ? "from" : "to"} ${d.f.city}`, [["Phase", d.st.phase], ["Aircraft", d.f.type], ["Speed", d.st.kt + " kt"], ["Altitude", d.st.ft ? d.st.ft + " ft" : "ground"]]);
+});
+cv.addEventListener("mouseleave", hideTip);
+cv.addEventListener("click", ev => { const d = hitTest(ev); S.selected = d ? d.f.id : null; updateUI(); });
+
+/* ============================ tooltip ============================ */
+const tip = $("#tip");
+function showTip(ev, title, rows){
+  tip.innerHTML = `<div class="tt">${title}</div>` + rows.map(([k, v, c]) => `<div class="tr"><span>${c ? `<i class="chip" style="--c:${c}"></i> ` : ""}${k}</span><span>${v}</span></div>`).join("");
+  tip.style.display = "block";
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = ev.clientX + 14, y = ev.clientY + 14;
+  if (x + w > innerWidth - 8) x = ev.clientX - w - 14;
+  if (y + h > innerHeight - 8) y = ev.clientY - h - 14;
+  tip.style.left = x + "px"; tip.style.top = y + "px";
+}
+function hideTip(){ tip.style.display = "none"; }
+
+/* ============================ derived metrics ============================ */
+function paxIn(f, t){
+  if (f.cancelled || f.est == null || !f.pax) return 0;
+  const m = (t - f.est) / MIN;
+  if (f.dir === "D") { if (m < -180 || m >= -12) return 0; if (m < -45) return f.pax * (m + 180) / 135; if (m < -25) return f.pax; return f.pax * (-12 - m) / 13; }
+  const exit = f.intl ? 55 : 35; if (m < 6 || m >= exit) return 0; if (m < 12) return f.pax * (m - 6) / 6; if (m < exit - 20) return f.pax; return f.pax * (exit - m) / 20;
+}
+function boardStatus(f, t){
+  if (f.cancelled) return ["Cancelled", "crit", "✕"];
+  const late = (f.est - f.sched) / MIN;
+  if (f.dir === "A") {
+    if (t >= f.est + 30 * MIN) return ["Arrived", "", "✓"];
+    if (t >= f.est + 8 * MIN) return [`Bags · belt ${f.belt}`, "", "▤"];
+    if (t >= f.est) return ["Landed", "info", "↓"];
+    if (t >= f.est - 15 * MIN) return [f.diverted ? "Approach · RWY 28" : "On approach", late > 15 ? "warn" : "info", "✈"];
+    return late > 15 ? [`Delayed · ${fmtT(f.est)}`, "warn", "!"] : ["On time", "good", "✓"];
+  }
+  const T = depTimes(f);
+  if (t >= f.est) return ["Departed", "", "↑"];
+  if (t >= T.pushAt) return ["Taxiing", "info", "➜"];
+  if (t >= T.pushAt - 8 * MIN) return ["Gate closed", "serious", "■"];
+  if (t >= T.pushAt - 15 * MIN) return ["Final call", "serious", "!"];
+  if (t >= T.pushAt - 40 * MIN) return ["Boarding", "info", "▶"];
+  if (late > 15) return [`Delayed · ${fmtT(f.est)}`, "warn", "!"];
+  return [t >= f.sched - 3 * HOUR ? "Check-in open" : "On time", "good", "✓"];
+}
+const pill = ([l, k, i]) => `<span class="pill ${k}"><i>${i}</i>${l}</span>`;
+
+/* ============================ UI rendering ============================ */
+const KPI_DEF = [
+  ["kPax", "Passengers in terminals"], ["kMov", "Movements today"], ["kHr", "Movements · last 60 min"], ["kOtp", "On-time performance"],
+  ["kSec", "Avg security wait"], ["kGnd", "Aircraft on stand"], ["kBag", "Bags handled today"], ["kCgo", "Cargo handled today"], ["kWx", "Weather · METAR"],
+];
+/* ---- pictograms (own simple designs, wayfinding style) ---- */
+const PLANE_UP = "M12 2c.8 0 1.3.7 1.3 1.6V9l7.7 4.6v2l-7.7-2.3v4.6l2 1.6V21L12 20l-3.3 1v-1.5l2-1.6v-4.6L3 15.6v-2L10.7 9V3.6C10.7 2.7 11.2 2 12 2z";
+const PICTO = {
+  plane: `<path d="${PLANE_UP}"/>`,
+  dep: `<g transform="translate(0 -2) rotate(62 12 12) scale(.86) translate(2 2)"><path d="${PLANE_UP}"/></g><rect x="3" y="20" width="18" height="2.2" rx="1.1"/>`,
+  arr: `<g transform="translate(0 -1) rotate(118 12 12) scale(.86) translate(2 2)"><path d="${PLANE_UP}"/></g><rect x="3" y="20" width="18" height="2.2" rx="1.1"/>`,
+  radar: `<circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".6"/><g transform="translate(12 12) rotate(45) scale(.5) translate(-12 -12)"><path d="${PLANE_UP}"/></g>`,
+  target: `<path d="M3 8V3h5M16 3h5v5M21 16v5h-5M8 21H3v-5" fill="none" stroke="currentColor" stroke-width="2"/><g transform="translate(12 12) scale(.6) translate(-12 -12)"><path d="${PLANE_UP}"/></g>`,
+  runway: `<g fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8.5 2.5h7L19 21.5H5z"/><path d="M12 5v3m0 3v3m0 3v3"/></g>`,
+  bell: `<path d="M12 3a6 6 0 00-6 6v4l-2 3h16l-2-3V9a6 6 0 00-6-6zm-2.2 15a2.2 2.2 0 004.4 0z"/>`,
+  bars: `<rect x="4" y="11" width="3.4" height="9" rx="1"/><rect x="10.3" y="5" width="3.4" height="15" rx="1"/><rect x="16.6" y="13" width="3.4" height="7" rx="1"/>`,
+  people: `<circle cx="7.5" cy="4.6" r="2.2"/><path d="M5 8.4h5l.9 6.3H9.4V21H5.6v-6.3H4.1z"/><circle cx="16.5" cy="4.6" r="2.2"/><path d="M14 8.4h5l2.2 7.4h-2.6V21h-4.2v-5.2H11.8z"/>`,
+  passport: `<path d="M12 2l8 3v6c0 5.2-3.4 9.4-8 11-4.6-1.6-8-5.8-8-11V5z"/><path d="M8.5 12l2.4 2.4 4.6-4.8" fill="none" style="stroke:var(--sign)" stroke-width="2"/>`,
+  cart: `<path d="M17 2.5h3.5v1.9h-2L15.8 18H5.5v-1.9h8.7z"/><rect x="4.5" y="7" width="8.6" height="7.6" rx="1.2"/><circle cx="7" cy="20.5" r="1.7"/><circle cx="14.5" cy="20.5" r="1.7"/>`,
+  bolt: `<path d="M13.5 2L5 13.5h6L10 22l9-12h-6.2z"/>`,
+  clock: `<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 6.5V12l3.6 2.4" fill="none" stroke="currentColor" stroke-width="2"/>`,
+  check: `<circle cx="12" cy="12" r="9.5"/><path d="M7.5 12.3l3 3 6-6.3" fill="none" style="stroke:var(--sign)" stroke-width="2.3"/>`,
+  bag: `<rect x="4" y="7.5" width="16" height="12.5" rx="2"/><path d="M9 7.5V5.2C9 4.5 9.5 4 10.2 4h3.6c.7 0 1.2.5 1.2 1.2v2.3h-1.7V5.7h-2.6v1.8z"/><rect x="8" y="7.5" width="1.4" height="12.5" style="fill:var(--sign)"/><rect x="14.6" y="7.5" width="1.4" height="12.5" style="fill:var(--sign)"/>`,
+  box: `<path d="M12 2.5l8.5 4v11L12 21.5l-8.5-4v-11z"/><path d="M3.8 6.7L12 10.6l8.2-3.9M12 10.6v10.6" fill="none" style="stroke:var(--sign)" stroke-width="1.5"/>`,
+  sun: `<circle cx="9" cy="9" r="4"/><path d="M9 1.5v2.2M9 14.3v2.2M1.5 9h2.2M2.7 2.7l1.6 1.6M13.7 4.3l1.6-1.6" stroke="currentColor" stroke-width="1.6"/><path d="M9.5 21a4 4 0 01-.3-8 5 5 0 019.4 1.2A3.4 3.4 0 0118.5 21z"/>`,
+  stand: `<path d="${PLANE_UP}" transform="translate(12 10) scale(.7) translate(-12 -12)"/><rect x="4" y="20" width="16" height="2" rx="1"/>`,
+};
+const pic = (k, cls = "pic") => `<span class="${cls}"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${PICTO[k] || ""}</svg></span>`;
+const ARROW = a => `<span class="arw" style="transform:rotate(${a}deg)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v17M5.5 9.5L12 3l6.5 6.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square"/></svg></span>`;
+document.querySelectorAll("h2[data-icon]").forEach(h => { h.insertAdjacentHTML("afterbegin", pic(h.dataset.icon)); if (h.dataset.arrow) h.insertAdjacentHTML("beforeend", ARROW(+h.dataset.arrow)); });
+document.querySelectorAll("[data-picto]").forEach(el => { el.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${PICTO[el.dataset.picto]}</svg>`; });
+const KPI_ICON = {kPax:"people", kMov:"runway", kHr:"clock", kOtp:"check", kSec:"passport", kGnd:"stand", kBag:"bag", kCgo:"box", kWx:"sun"};
+$("#kpis").innerHTML = KPI_DEF.map(([id, l]) => `<div class="kpi">${pic(KPI_ICON[id], "kpi-ic")}<div class="k-label">${l}</div><div class="k-val" id="${id}">—</div><div class="k-sub" id="${id}s"></div>${id === "kHr" ? `<div class="meter"><i id="kHrM" style="width:0"></i></div>` : ""}</div>`).join("");
+$("#mapLegend").innerHTML = Object.keys(CAT_VAR).map(k => `<span><i class="chip" style="--c:var(${CAT_VAR[k]})"></i>${CAT_NAME[k]}</span>`).join("") +
+  `<span class="muted">Tail colour = airline · aircraft drawn larger with a detached shadow are airborne · small vehicles = fuel, catering, baggage, tug · cars and the metro run along the landside road</span>`;
+
+function updateUI(){
+  ensureDays();
+  const t = S.t, ds = dayStartOf(t), de = ds + DAY;
+  $("#clock").textContent = fmtTS(t);
+  $("#date").textContent = new Date(t + IST).toLocaleDateString("en-GB", {timeZone:"UTC", weekday:"short", day:"numeric", month:"short", year:"numeric"}) + " · IST" + (S.speed > 1 ? ` · ${S.speed}× speed` : "");
+
+  // --- aggregate pass
+  const termPax = {T1:0, T2:0, T3:0}, depRate = {T1:0, T2:0, T3:0}; let intlDepRate = 0, intlArrRate = 0;
+  let movDone = 0, movTotal = 0, arrDone = 0, depDone = 0, onTime = 0, lastHr = 0, bags = 0, cargo = 0, fuel = 0, beltsBusy = {T1:new Set(), T2:new Set(), T3:new Set()};
+  const rw = {"27":{n:0, next:null}, "29L":{n:0, next:null}, "29R":{n:0, next:null}, "28":{n:0, next:null}};
+  for (const f of S.flights) {
+    if (f.est == null) continue;
+    if (f.term !== "CGO") {
+      const p = paxIn(f, t); if (p) termPax[f.term] += p;
+      const m = (t - f.est) / MIN;
+      if (f.dir === "D" && m >= -180 && m < -45 && !f.cancelled) { depRate[f.term] += f.pax / 135; if (f.intl) intlDepRate += f.pax / 135; }
+      if (f.dir === "A" && f.intl && m >= 8 && m < 30 && !f.cancelled) intlArrRate += f.pax / 22;
+      if (f.dir === "A" && m >= 10 && m < 40 && !f.cancelled) beltsBusy[f.term].add(f.belt);
+    }
+    if (f.cancelled) continue;
+    if (!rw[f.rwy].next || (f.est > t && f.est < rw[f.rwy].next.est)) if (f.est > t) rw[f.rwy].next = f;
+    if (f.est <= t && f.est > t - HOUR) { lastHr++; rw[f.rwy].n++; }
+    if (f.sched >= ds && f.sched < de) {
+      movTotal++;
+      if (f.est <= t) {
+        movDone++; f.dir === "A" ? arrDone++ : depDone++;
+        if (f.est - f.sched <= 15 * MIN) onTime++;
+        bags += f.pax * 1.08; cargo += f.cargoT; if (f.dir === "D") fuel += f.wide ? 62 : 7;
+      }
+    }
+  }
+  const paxTotal = termPax.T1 + termPax.T2 + termPax.T3;
+  S.paxHist.push([t, paxTotal]); while (S.paxHist.length && S.paxHist[0][0] < t - 20 * MIN) S.paxHist.shift();
+  const trend = paxTotal - S.paxHist[0][1];
+
+  // queues (simple queueing approximation from arrival rates and lanes)
+  const LANES = {T1:16, T2:9, T3:34}, perLane = 2.4;
+  const Q = {};
+  for (const k of ["T1", "T2", "T3"]) {
+    const rate = depRate[k], open = clamp(Math.ceil(rate / (perLane * .8)), 3, LANES[k]), rho = rate / (open * perLane);
+    const sec = 3 + 26 * Math.pow(Math.max(0, rho - .55), 1.4) + (S.fog ? 2 : 0);
+    const chk = 4 + 18 * Math.pow(Math.max(0, rate / (LANES[k] * 2.6) - .3), 1.2);
+    Q[k] = {rate, open, sec, chk};
+  }
+  const immD = 4 + 30 * Math.pow(Math.max(0, intlDepRate / (40 * 1.6) - .45), 1.3), immA = 5 + 34 * Math.pow(Math.max(0, intlArrRate / (44 * 1.5) - .45), 1.3);
+  const secAvg = (Q.T1.sec * Q.T1.rate + Q.T2.sec * Q.T2.rate + Q.T3.sec * Q.T3.rate) / Math.max(1, Q.T1.rate + Q.T2.rate + Q.T3.rate);
+
+  // weather
+  const hr = istHour(t), temp = 19.5 + 7.5 * Math.sin((hr - 9) * Math.PI / 12), vis = S.fog ? 150 : (hr < 9 || hr > 20 ? 1800 : 2800);
+
+  // --- KPIs
+  const set = (id, v, sub) => { $("#" + id).innerHTML = v; $("#" + id + "s").textContent = sub; };
+  set("kPax", fmtN(paxTotal), `${trend >= 0 ? "▲" : "▼"} ${fmtN(Math.abs(trend))} in 20 min · T1 ${fmtN(termPax.T1)} · T2 ${fmtN(termPax.T2)} · T3 ${fmtN(termPax.T3)}`);
+  set("kMov", `${fmtN(movDone)} <small>/ ${fmtN(movTotal)}</small>`, `${arrDone} arrivals · ${depDone} departures`);
+  const cap = S.fog ? 58 : S.closure ? 72 : 96;
+  set("kHr", `${lastHr} <small>/ ${cap} cap</small>`, S.fog ? "LVP capacity" : S.closure ? "3 runways open" : "4 runways open");
+  $("#kHrM").style.width = clamp(lastHr / cap * 100, 0, 100) + "%";
+  set("kOtp", movDone ? Math.round(onTime / movDone * 100) + "%" : "—", "within 15 min of schedule");
+  set("kSec", `${Math.round(secAvg)} <small>min</small>`, `${Q.T1.open + Q.T2.open + Q.T3.open} of ${LANES.T1 + LANES.T2 + LANES.T3} CISF lanes open`);
+  const onStand = S.drawn.filter(d => d.st.parked).length;
+  set("kGnd", `${onStand} <small>/ ${STANDS.length}</small>`, `${Math.round(onStand / STANDS.length * 100)}% of contact stands in use`);
+  set("kBag", fmtN(bags), `${fmtN(bags / Math.max(1, (t - ds) / HOUR))} per hour average`);
+  set("kCgo", `${fmtN(cargo)} <small>t</small>`, `${S.flights.filter(f => f.cat === "CGO" && f.sched >= ds && f.sched < de && f.est <= t).length} freighter movements`);
+  set("kWx", `${Math.round(temp)}° <small>${vis >= 1000 ? (vis / 1000).toFixed(1) + " km" : vis + " m"}</small>`, S.fog ? "FG · RVR 300 m · 290/02 kt · QNH 1018" : `HZ · 290/0${4 + Math.round(Math.sin(hr) * 2 + 2)} kt · QNH 1016`);
+
+  // --- boards
+  const near = S.flights.filter(f => f.est != null && f.est > t - 40 * MIN && f.sched < t + 6 * HOUR);
+  const arr = near.filter(f => f.dir === "A" && !(f.est + 30 * MIN < t)).sort((a, b) => a.sched - b.sched).slice(0, 10);
+  const dep = near.filter(f => f.dir === "D" && !(f.est + 3 * MIN < t)).sort((a, b) => a.sched - b.sched).slice(0, 10);
+  const row = f => { const st = boardStatus(f, t), late = !f.cancelled && f.est - f.sched > 5 * MIN; return `<tr data-id="${f.id}" class="${S.selected === f.id ? "sel" : ""}"><td class="mono">${fmtT(f.sched)}${late ? `<span class="est">${fmtT(f.est)}</span>` : ""}</td><td><i class="chip" style="--c:var(${CAT_VAR[f.cat]})"></i> <b>${f.fn}</b></td><td title="${f.city}">${f.city} <span class="muted">${f.iata}</span></td><td class="mono">${f.stand.id.replace("-", " ")}</td><td>${pill(st)}</td></tr>`; };
+  $("#arrBoard").innerHTML = arr.map(row).join(""); $("#depBoard").innerHTML = dep.map(row).join("");
+  $("#arrCount").textContent = `${arrDone} landed today`; $("#depCount").textContent = `${depDone} departed today`;
+
+  // --- runways
+  $("#runways").innerHTML = Object.entries(RWY).map(([k, r]) => {
+    const closed = S.closure && S.closure.rwy === k, d = rw[k];
+    const st = closed ? ["Closed", "crit", "✕"] : S.fog ? ["LVP · CAT III B", "warn", "!"] : ["Active", "good", "✓"];
+    const nxt = d.next ? `next ${d.next.fn} ${fmtT(d.next.est)}` : "no traffic";
+    return `<div class="row"><div class="grow"><div class="name">RWY ${r.pair}</div><div class="sub">${r.use === "ARR" ? "Arrivals" : "Departures"} on ${k} · ${closed ? `reopens ${fmtT(S.closure.until)}` : nxt}</div></div><div class="val"><b>${d.n}</b> <span class="muted">mvts</span></div>${pill(st)}</div>`;
+  }).join("");
+
+  // --- selected flight
+  renderDetail(t);
+
+  // --- terminals
+  const TCAP = {T1:9000, T2:5000, T3:22000};
+  $("#terminals").innerHTML = ["T3", "T2", "T1"].map(k => {
+    const occ = termPax[k] / TCAP[k], q = Q[k], belts = beltsBusy[k].size;
+    const cell = (l, v) => `<div><span>${l}</span><b class="${v > 20 ? "hot" : ""}">${typeof v === "number" ? Math.round(v) : v}</b></div>`;
+    return `<div class="term"><div class="term-top"><b>Terminal ${k.slice(1)} <span class="muted" style="font-weight:400">${k === "T3" ? "intl + domestic" : "domestic"}</span></b><span class="mono">${fmtN(termPax[k])} pax · ${Math.round(occ * 100)}%</span></div>
+      <div class="meter"><i style="width:${clamp(occ * 100, 0, 100)}%;background:${occ > .85 ? "var(--crit)" : occ > .65 ? "var(--warn)" : "var(--text-2)"}"></i></div>
+      <div class="q">${cell("Check-in", q.chk)}${cell("Security", q.sec)}${k === "T3" ? cell("Immig. out", immD) + cell("Immig. in", immA) : cell("Lanes open", `${q.open}/${LANES[k]}`) + cell("Belts busy", `${belts}/${BELTS[k]}`)}</div></div>`;
+  }).join("");
+
+  // --- turnarounds
+  const turns = [];
+  for (const f of S.flights) {
+    if (f.dir !== "D" || f.cancelled || f.est == null || Math.abs(f.est - t) > 2 * HOUR) continue;
+    const T = depTimes(f); if (t >= T.inAt && t < T.pushAt) turns.push([f, T]);
+  }
+  turns.sort((a, b) => a[1].pushAt - b[1].pushAt);
+  const TASKS = [["Deboard", 0, .18], ["Clean", .18, .42], ["Cater", .25, .5], ["Fuel", .3, .6], ["Bags", .35, .8], ["Board", .6, .95]];
+  $("#turns").innerHTML = turns.slice(0, 7).map(([f, T]) => {
+    const p = clamp((t - T.inAt) / (T.pushAt - T.inAt), 0, 1), late = f.est - f.sched > 15 * MIN;
+    return `<div class="row" data-id="${f.id}" style="cursor:pointer"><div class="grow"><div><span class="name">${f.fn}</span> <span class="muted">${f.stand.id} · ${f.type} → ${f.iata}</span></div>
+      <div class="tasks">${TASKS.map(([n, a, b]) => `<span class="task ${p >= b ? "done" : p >= a ? "act" : ""}">${n}</span>`).join("")}</div></div>
+      <div class="val"><div class="mono">TOBT ${fmtT(T.pushAt)}</div>${late ? pill(["Late", "warn", "!"]) : `<span class="muted" style="font-size:11px">${Math.round(p * 100)}% done</span>`}</div></div>`;
+  }).join("") || `<div class="hint">No aircraft currently on stand.</div>`;
+
+  // --- background systems
+  const bagsHr = (depRate.T1 + depRate.T2 + depRate.T3) * 60 * 1.08 + intlArrRate * 60;
+  const power = 38 + 18 * Math.sin((hr - 8) * Math.PI / 14) + paxTotal / 2500, solar = Math.max(0, Math.sin((hr - 6.5) / 11 * Math.PI)) * 22;
+  const birdTxt = ["Low", "Low", "Moderate", "High"][S.birds];
+  const metro = 10 - Math.floor((t / MIN) % 10);
+  const SYS = [
+    ["Baggage handling system", `${fmtN(bagsHr)} bags/hr`, S.jams % 3 === 1 ? ["1 jam cleared", "warn", "!"] : ["Normal", "good", "✓"], "Inline screening on, 99.6% read rate"],
+    ["Fuel hydrant (into-plane)", `${fmtN(fuel)} kL today`, ["Normal", "good", "✓"], "IndianOil Skytanking · Bharat Stars"],
+    ["Power & energy", `${power.toFixed(1)} MW`, ["Normal", "good", "✓"], `Solar ${solar.toFixed(0)}% of load · grid A+B healthy`],
+    ["Rescue & firefighting (ARFF)", S.closure ? "Responding · 29R" : "3/3 stations ready", S.closure ? ["Active", "serious", "!"] : ["Ready", "good", "✓"], "Category 10 cover"],
+    ["Airfield lighting", night(hr) ? "On · all circuits" : "Standby", S.fog ? ["CAT III B", "warn", "!"] : ["Normal", "good", "✓"], "Centre-line and stop-bar lights checked"],
+    ["Bird & wildlife hazard", birdTxt, S.birds >= 2 ? ["Watch", "warn", "!"] : ["Normal", "good", "✓"], "Bird control unit patrolling"],
+    ["Runway FOD inspection", "Last " + fmtT(S.lastFod), ["Clear", "good", "✓"], "Every 4 h + on request"],
+    ["Cargo terminals", `${Math.round(8 + cargo / 60)} trucks at dock`, ["Normal", "good", "✓"], "Export · import · cold chain"],
+    ["Metro Airport Express", `Next train ${metro} min`, ["Running", "good", "✓"], "T3 ↔ New Delhi station"],
+  ];
+  $("#systems").innerHTML = SYS.map(([n, v, st, sub]) => `<div class="row"><div class="grow"><div class="name">${n}</div><div class="sub">${sub}</div></div><div class="val mono">${v}</div>${pill(st)}</div>`).join("");
+
+  $("#mapNote").textContent = S.closure ? "29R closed · ARR 28 only · DEP 29L / 27" : S.fog ? "LVP · CAT III B · increased spacing" : "West flow · ARR 29R / 28 · DEP 29L / 27";
+  if (LIVE_ON()) window.LIVE.ui();
+}
+const LIVE_ON = () => !!(window.LIVE && window.LIVE.on);
+const night = hr => hr < 6.2 || hr > 18.1;
+
+function renderDetail(t){
+  if (LIVE_ON()) return window.LIVE.detail();
+  const f = S.selected && S.byId.get(S.selected);
+  if (!f) { $("#detail").innerHTML = `<div class="hint">Pick any aircraft on the airfield map — or a row on the arrivals/departures boards — to follow it live: phase of flight, speed, altitude, stand, runway and passengers.</div>`; return; }
+  const st = flightState(f, t), bs = boardStatus(f, t);
+  const d = [["Airline", f.airline], ["Aircraft", `${f.type} · ${f.reg}`], [f.dir === "A" ? "From" : "To", `${f.city} (${f.iata})`],
+    ["Scheduled", fmtT(f.sched)], [f.dir === "A" ? "Landing" : "Take-off", f.cancelled ? "—" : fmtT(f.est) + (f.est - f.sched > 5 * MIN ? ` (+${Math.round((f.est - f.sched) / MIN)} min)` : "")],
+    ["Runway", f.rwy], ["Stand", `${f.stand.id} (${f.term === "CGO" ? "Cargo" : "Terminal " + f.term.slice(1)})`],
+    [f.cat === "CGO" ? "Cargo" : "Passengers", f.cat === "CGO" ? `${Math.round(f.cargoT)} t` : f.pax],
+    ["Phase", st ? st.phase : (f.dir === "A" ? (t < f.est ? "En route" : "Completed") : (t < f.est ? "Not yet on stand" : "Departed"))],
+    ["Speed / alt", st ? `${st.kt} kt · ${st.ft ? st.ft + " ft" : "ground"}` : "—"]];
+  $("#detail").innerHTML = `<div class="fl-head"><i class="chip" style="--c:var(${CAT_VAR[f.cat]});width:12px;height:12px"></i><b>${f.fn}</b>${pill(bs)}</div><dl class="detail">${d.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>`;
+}
+function renderAlerts(){
+  if (LIVE_ON()) return window.LIVE.renderLog();
+  const ico = {info:"i", warn:"!", crit:"✕"};
+  $("#alerts").innerHTML = S.alerts.slice(0, 30).map(a => `<div class="alert"><span class="sev ${a.sev}">${ico[a.sev]}</span><div class="grow"><div style="font-size:12px">${a.text}</div><div class="muted" style="font-size:11px">${fmtT(a.t)} IST</div></div></div>`).join("");
+}
+for (const id of ["#arrBoard", "#depBoard", "#turns", "#runways"]) $(id).addEventListener("click", e => {
+  const lv = e.target.closest("[data-fi],[data-hex]");
+  if (lv && LIVE_ON()) return lv.dataset.hex ? window.LIVE.selectHex(lv.dataset.hex) : window.LIVE.selectFromBoard(+lv.dataset.fi);
+  const r = e.target.closest("[data-id]"); if (r) { S.selected = r.dataset.id; updateUI(); }
+});
+
+/* ============================ charts ============================ */
+function niceTicks(v){ const raw = Math.max(1, v) / 4, p = Math.pow(10, Math.floor(Math.log10(raw))), step = [1, 2, 5, 10].find(m => m * p >= raw) * p; const max = Math.ceil(v / step) * step || step; return {max, step}; }
+const barPath = (x, y, w, h, r) => { r = Math.min(r, w / 2, h); return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`; };
+function drawHourly(){
+  const el = $("#chHourly"), W = el.clientWidth, H = 220, m = {l:32, r:8, t:8, b:22}, t = S.t, ds = dayStartOf(t);
+  const A = new Array(24).fill(0), D = new Array(24).fill(0);
+  for (const f of S.flights) { if (f.cancelled || f.est == null || f.est < ds || f.est >= ds + DAY) continue; const h = Math.floor((f.est - ds) / HOUR); (f.dir === "A" ? A : D)[h]++; }
+  const nt = niceTicks(Math.max(...A, ...D)), ymax = nt.max, iw = W - m.l - m.r, ih = H - m.t - m.b, band = iw / 24, bw = Math.max(2, (band - 4) / 2 - 1);
+  const y = v => m.t + ih - v / ymax * ih, nowH = (t - ds) / HOUR;
+  let s = `<svg viewBox="0 0 ${W} ${H}" height="${H}">`;
+  for (let v = 0; v <= ymax; v += nt.step) s += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/><text x="${m.l - 6}" y="${y(v) + 3}" text-anchor="end">${v}</text>`;
+  for (let h = 0; h < 24; h++) {
+    const x = m.l + h * band + 2, op = h + 1 <= nowH ? 1 : h <= nowH ? .75 : .35;
+    if (A[h]) s += `<path d="${barPath(x, y(A[h]), bw, ih + m.t - y(A[h]), 3)}" fill="var(--s1)" opacity="${op}"/>`;
+    if (D[h]) s += `<path d="${barPath(x + bw + 2, y(D[h]), bw, ih + m.t - y(D[h]), 3)}" fill="var(--s2)" opacity="${op}"/>`;
+    if (h % 3 === 0) s += `<text x="${m.l + h * band + band / 2}" y="${H - 6}" text-anchor="middle">${pad(h)}:00</text>`;
+    s += `<rect class="hit" data-h="${h}" x="${m.l + h * band}" y="${m.t}" width="${band}" height="${ih}" fill="transparent"/>`;
+  }
+  const nx = m.l + nowH * band;
+  s += `<line x1="${nx}" x2="${nx}" y1="${m.t}" y2="${m.t + ih}" stroke="var(--text)" stroke-dasharray="3 3"/><text x="${nx + 4}" y="${m.t + 9}" style="fill:var(--text)">now</text></svg>`;
+  el.innerHTML = s;
+  el.querySelectorAll(".hit").forEach(r => {
+    r.addEventListener("mousemove", ev => { const h = +r.dataset.h; showTip(ev, `${pad(h)}:00–${pad(h + 1)}:00 ${h + 1 <= nowH ? "" : h <= nowH ? "(in progress)" : "(scheduled)"}`, [["Arrivals", A[h], "var(--s1)"], ["Departures", D[h], "var(--s2)"], ["Total", A[h] + D[h]]]); r.setAttribute("fill", "rgba(127,127,127,.08)"); });
+    r.addEventListener("mouseleave", () => { hideTip(); r.setAttribute("fill", "transparent"); });
+  });
+}
+function drawPax(){
+  const el = $("#chPax"), W = el.clientWidth, H = 240, m = {l:44, r:10, t:10, b:22}, t = S.t, ds = dayStartOf(t);
+  const rel = S.flights.filter(f => f.est != null && f.est > ds - 4 * HOUR && f.est < ds + DAY + 4 * HOUR && f.term !== "CGO");
+  const pts = []; for (let i = 0; i <= 144; i++) { const tt = ds + i * 10 * MIN; let p = 0; for (const f of rel) p += paxIn(f, tt); pts.push([tt, p]); }
+  const nt = niceTicks(Math.max(...pts.map(p => p[1]))), ymax = nt.max, iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const x = tt => m.l + (tt - ds) / DAY * iw, y = v => m.t + ih - v / ymax * ih;
+  const past = pts.filter(p => p[0] <= t), fut = pts.filter(p => p[0] >= t - 10 * MIN);
+  const line = a => a.map((p, i) => (i ? "L" : "M") + x(p[0]).toFixed(1) + "," + y(p[1]).toFixed(1)).join("");
+  let s = `<svg viewBox="0 0 ${W} ${H}" height="${H}">`;
+  for (let v = 0; v <= ymax; v += nt.step) s += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/><text x="${m.l - 6}" y="${y(v) + 3}" text-anchor="end">${v >= 1000 ? (v / 1000) + "k" : v}</text>`;
+  for (let h = 0; h <= 24; h += 3) s += `<text x="${x(ds + h * HOUR)}" y="${H - 6}" text-anchor="${h === 0 ? "start" : h === 24 ? "end" : "middle"}">${pad(h % 24)}:00</text>`;
+  if (past.length > 1) s += `<path d="${line(past)}L${x(past[past.length - 1][0])},${m.t + ih}L${x(past[0][0])},${m.t + ih}Z" fill="var(--s1)" opacity=".12"/><path d="${line(past)}" fill="none" stroke="var(--s1)" stroke-width="2" stroke-linejoin="round"/>`;
+  if (fut.length > 1) s += `<path d="${line(fut)}" fill="none" stroke="var(--s1)" stroke-width="2" stroke-dasharray="4 4" opacity=".7"/>`;
+  const cur = pts.reduce((a, b) => Math.abs(b[0] - t) < Math.abs(a[0] - t) ? b : a);
+  s += `<circle cx="${x(t)}" cy="${y(cur[1])}" r="4.5" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"/>`;
+  s += `<line id="paxX" x1="0" x2="0" y1="${m.t}" y2="${m.t + ih}" stroke="var(--text-2)" stroke-width="1" visibility="hidden"/><circle id="paxD" r="4" fill="var(--s1)" stroke="var(--surface)" stroke-width="2" visibility="hidden"/>`;
+  s += `<rect id="paxHit" x="${m.l}" y="${m.t}" width="${iw}" height="${ih}" fill="transparent"/></svg>`;
+  el.innerHTML = s;
+  const hit = el.querySelector("#paxHit"), cx = el.querySelector("#paxX"), dot = el.querySelector("#paxD");
+  hit.addEventListener("mousemove", ev => {
+    const r = el.getBoundingClientRect(), tt = ds + clamp((ev.clientX - r.left - m.l) / iw, 0, 1) * DAY;
+    const p = pts.reduce((a, b) => Math.abs(b[0] - tt) < Math.abs(a[0] - tt) ? b : a);
+    cx.setAttribute("x1", x(p[0])); cx.setAttribute("x2", x(p[0])); cx.setAttribute("visibility", "visible");
+    dot.setAttribute("cx", x(p[0])); dot.setAttribute("cy", y(p[1])); dot.setAttribute("visibility", "visible");
+    showTip(ev, `${fmtT(p[0])} IST ${p[0] > t ? "· forecast" : ""}`, [["Passengers in terminals", fmtN(p[1]), "var(--s1)"]]);
+  });
+  hit.addEventListener("mouseleave", () => { hideTip(); cx.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); });
+}
+function drawCharts(){ drawHourly(); drawPax(); S.chartDirty = false; }
+
+/* ============================ controls & loop ============================ */
+$("#speed").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; S.speed = +b.dataset.s; $("#speed").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); });
+$("#btnNow").addEventListener("click", () => { S.t = Date.now(); S.speed = 1; $("#speed").querySelectorAll("button").forEach(x => x.classList.toggle("on", x.dataset.s === "1")); S.nextAlertAt = S.t + 2 * MIN; sequenceAll(); updateUI(); drawCharts(); });
+$("#btnFog").addEventListener("click", () => setFog(!S.fog));
+$("#btnClose").addEventListener("click", closeRunway);
+function applyTheme(th){ document.documentElement.dataset.theme = th; try { localStorage.setItem("del-theme", th); } catch (e) {} readColors(); drawCharts(); }
+$("#btnTheme").addEventListener("click", () => applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));
+try { const th = localStorage.getItem("del-theme"); if (th) document.documentElement.dataset.theme = th; } catch (e) {}
+
+readColors(); sizeCanvas(); ensureDays();
+if (document.fonts) document.fonts.ready.then(() => { staticKey = ""; });
+for (let i = 8; i >= 1; i--) genAlert(S.t - i * 6 * MIN);
+S.nextAlertAt = S.t + 2 * MIN; renderAlerts();
+drawMap(); updateUI(); drawCharts();
+let last = performance.now(), lastUI = 0, lastCharts = performance.now();
+function step(now){
+  const dt = Math.min(now - last, 1500); last = now;
+  if (LIVE_ON()) { S.t = Date.now(); tickEvents(); window.LIVE.frame(now); }
+  else { S.t += dt * S.speed; tickEvents(); drawMap(); }
+  if (now - lastUI > (S.speed > 1 ? 500 : 1000)) { updateUI(); lastUI = now; }
+  if (S.chartDirty || now - lastCharts > (S.speed > 1 ? 5000 : 30000)) { drawCharts(); lastCharts = now; }
+}
+function frame(now){ step(now); requestAnimationFrame(frame); }
+requestAnimationFrame(frame);
+// fallback when animation frames are throttled (background tab / hidden pane): keep the clock and panels live
+setInterval(() => { const now = performance.now(); if (now - last > 400) step(now); }, 500);
+let rz; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { sizeCanvas(); drawCharts(); }, 120); });
+</script>
+<script src="live.js"></script>
+</body>
+</html>
