@@ -228,10 +228,7 @@ footer b{color:var(--text-2)}
   <section class="card span-4"><h2 data-icon="cart">Aircraft turnarounds <small>on stand, next to push</small></h2><div class="list" id="turns"></div></section>
   <section class="card span-4"><h2 data-icon="bolt">Background systems <small>airside &amp; landside</small></h2><div class="list" id="systems"></div></section>
 
-  <footer>
-    <b>About this data.</b> Opened on its own, every number comes from a built-in simulation of a typical DEL day (about 1,400 movements across four runways and three terminals). Run <b>python serve.py</b> and open http://localhost:8790 to switch on live data: panels tagged <b>LIVE</b> then show real aircraft from ADS-B (adsb.lol), the VIDP METAR (aviationweather.gov) and, with an AeroDataBox key in config.json, the real arrivals and departures board. Panels tagged <b>SIM</b> stay simulated, because no public source has that data.
-    A full airport deployment would feed those from internal systems: <b>flights</b> from the airport operational database (AODB) or an ADS-B provider; <b>passengers &amp; queues</b> from DigiYatra, CUPPS check-in and CISF lane counters; <b>bags</b> from the baggage handling system (BHS/SCADA); <b>turnarounds</b> from the A-CDM milestones; <b>systems</b> from the building management system and the ARFF/AOCC dispatch logs; <b>weather</b> from the METAR/RVR feed.
-  </footer>
+  
 </main>
 <div id="tip"></div>
 
